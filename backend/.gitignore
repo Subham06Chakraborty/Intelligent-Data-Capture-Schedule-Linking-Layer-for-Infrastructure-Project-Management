@@ -1,0 +1,23 @@
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# Google/Firebase credentials
+*.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Uploaded files
+uploads/
+
+# Test cache
+.pytest_cache/
+
+# OS/editor junk
+.DS_Store
+.vscode/
+.idea/
