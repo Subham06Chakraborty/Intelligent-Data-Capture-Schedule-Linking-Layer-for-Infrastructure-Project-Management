@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import health
+from app.routes import health, projects
 
 # ---------------------------------------------------------------------------
 # Logging setup (Milestone 1: just basic console logging)
@@ -71,6 +71,7 @@ app.add_middleware(
 #   app.include_router(matching.router)
 #   app.include_router(progress.router)
 app.include_router(health.router)
+app.include_router(projects.router)
 
 
 # ---------------------------------------------------------------------------

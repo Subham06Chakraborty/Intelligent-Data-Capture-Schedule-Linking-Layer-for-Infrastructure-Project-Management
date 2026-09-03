@@ -1,43 +1,46 @@
 """
 config.py
 ---------
-Central place where we load settings from environment variables (.env file).
-
-Why this file exists:
-- We never want to scatter `os.getenv(...)` calls all over the codebase.
-- Every other file should import `settings` from here instead of reading
-  environment variables directly.
+Central place where we load settings from the backend/.env file.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load variables from a local .env file into the process environment.
-# This looks for a file named ".env" in the current working directory
-# (i.e. the "backend/" folder when you run uvicorn from there).
-load_dotenv()
+
+# Get the backend directory:
+# backend/app/config.py -> backend/
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Explicitly load backend/.env
+ENV_FILE = BASE_DIR / ".env"
+load_dotenv(dotenv_path=ENV_FILE)
 
 
 class Settings:
-    """Simple settings container. Values come from environment variables,
-    with safe defaults for local development only."""
+    """Application settings loaded from backend/.env."""
 
     # Firestore / Google Cloud
     GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv(
         "GOOGLE_APPLICATION_CREDENTIALS", ""
     )
-    GOOGLE_CLOUD_PROJECT: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 
-    # CORS - comma separated list of allowed frontend origins
+    GOOGLE_CLOUD_PROJECT: str = os.getenv(
+        "GOOGLE_CLOUD_PROJECT", ""
+    )
+
+    # CORS
     ALLOWED_ORIGINS: list[str] = [
         origin.strip()
         for origin in os.getenv(
-            "ALLOWED_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500"
+            "ALLOWED_ORIGINS",
+            "http://localhost:5500,http://127.0.0.1:5500",
         ).split(",")
         if origin.strip()
     ]
 
-    # Environment mode
+    # Environment
     ENV: str = os.getenv("ENV", "development")
 
     # App metadata
@@ -45,6 +48,4 @@ class Settings:
     APP_VERSION: str = "0.1.0"
 
 
-# A single shared instance, imported everywhere else as:
-#   from app.config import settings
 settings = Settings()

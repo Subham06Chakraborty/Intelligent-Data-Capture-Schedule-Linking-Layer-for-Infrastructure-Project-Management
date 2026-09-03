@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProjectBridge — Infrastructure Progress Intelligence</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><div class="logo">PB</div><div><b>ProjectBridge</b><small>Planning → Execution</small></div></div>
+  <nav>
+    <button class="nav active" data-page="dashboard">▦ <span>Dashboard</span></button>
+    <button class="nav" data-page="projects">▤ <span>Projects</span></button>
+    <button class="nav" data-page="schedule">◫ <span>Schedule Import</span></button>
+    <button class="nav" data-page="reports">↥ <span>Progress Reports</span></button>
+    <button class="nav" data-page="matching">⌁ <span>AI Matching</span></button>
+    <button class="nav" data-page="tracking">◔ <span>Progress Tracking</span></button>
+  </nav>
+  <div class="bottom"><div class="api"><i></i><span>Backend</span><b id="apiStatus">Checking</b></div>
+  <button class="nav" data-page="settings">⚙ <span>Settings</span></button></div>
+</aside>
+
+<main>
+<header class="topbar">
+  <button class="menu" id="menuBtn">☰</button>
+  <div><small>INFRASTRUCTURE PROJECT INTELLIGENCE</small><h1 id="pageTitle">Project Dashboard</h1></div>
+  <div class="topright"><span id="today"></span><span>♢</span><div class="avatar">SC</div></div>
+</header>
+
+<section class="content">
+
+<div class="page active" id="dashboard">
+
+  <!-- Dashboard Header -->
+  <div class="hero">
+    <div>
+      <em>PROJECT OVERVIEW</em>
+      <h2 id="dashboardProjectName">No project selected</h2>
+      <p id="dashboardProjectInfo">
+        Create or select a project to begin tracking infrastructure execution.
+      </p>
+    </div>
+
+    <button class="primary" data-page="projects">
+      + Manage Projects
+    </button>
+  </div>
+
+  <!-- Real Project Statistics -->
+  <div class="stats">
+
+    <div class="stat">
+      <span>Total Projects</span>
+      <strong id="totalProjects">0</strong>
+      <small>Projects in Firestore</small>
+    </div>
+
+    <div class="stat">
+      <span>Active Projects</span>
+      <strong id="activeProjects">0</strong>
+      <small>Currently active</small>
+    </div>
+
+    <div class="stat">
+      <span>Average Progress</span>
+      <strong id="averageProgress">0%</strong>
+      <small>Across all projects</small>
+    </div>
+
+    <div class="stat">
+      <span>Completed Projects</span>
+      <strong id="completedProjects">0</strong>
+      <small>Successfully completed</small>
+    </div>
+
+  </div>
+
+  <!-- Project Progress + System Status -->
+  <div class="cols">
+
+    <article class="card">
+      <div class="head">
+        <div>
+          <h3>Project Progress</h3>
+          <p>Current progress of your projects</p>
+        </div>
+      </div>
+
+      <div id="dashboardProjects">
+        <div class="empty-state">
+          <h3>No projects available</h3>
+          <p>Create a project to see its progress here.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="head">
+        <div>
+          <h3>Execution Intelligence</h3>
+          <p>Planning-to-execution bridge</p>
+        </div>
+      </div>
+
+      <div class="disc">
+
+        <div>
+          <span>Schedule Data <b>Pending</b></span>
+          <div class="bar">
+            <i style="width:0%"></i>
+          </div>
+        </div>
+
+        <div>
+          <span>Progress Reports <b>Pending</b></span>
+          <div class="bar">
+            <i style="width:0%"></i>
+          </div>
+        </div>
+
+        <div>
+          <span>AI Activity Matching <b>Pending</b></span>
+          <div class="bar">
+            <i style="width:0%"></i>
+          </div>
+        </div>
+
+        <div>
+          <span>Progress Tracking <b>Pending</b></span>
+          <div class="bar">
+            <i style="width:0%"></i>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="notice">
+        <b>Phase 2</b>
+        <span>
+          Project management and Firestore integration are active.
+          Schedule and execution analytics will appear after Schedule Import.
+        </span>
+      </div>
+
+    </article>
+
+  </div>
+
+  <!-- Schedule Analytics Placeholder -->
+  <article class="card">
+
+    <div class="head">
+      <div>
+        <h3>Planned vs Actual</h3>
+        <p>Schedule-based execution analysis</p>
+      </div>
+    </div>
+
+    <div class="empty-state" style="padding:40px;text-align:center;">
+      <h3>Schedule data not available yet</h3>
+      <p>
+        Import a Primavera P6, MS Project, XLSX or CSV schedule
+        to enable planned vs actual analysis.
+      </p>
+
+      <button class="secondary" data-page="schedule">
+        Import Schedule
+      </button>
+    </div>
+
+  </article>
+
+  <!-- Attention Section -->
+  <article class="card">
+
+    <div class="head">
+      <div>
+        <h3>Execution Alerts</h3>
+        <p>Activities requiring attention</p>
+      </div>
+    </div>
+
+    <div class="empty-state" style="padding:30px;text-align:center;">
+      <h3>No execution alerts</h3>
+      <p>
+        Alerts will appear after schedule activities and progress
+        reports are imported and processed.
+      </p>
+    </div>
+
+  </article>
+
+</div>
+
+<div class="page" id="projects">
+  <div class="intro"><div><h2>Projects</h2><p>Manage infrastructure projects connected to the execution layer.</p></div><button class="primary" id="newProject">+ New Project</button></div>
+  <div class="projectgrid" id="projectGrid"><article class="project loading"><h3>Loading projects…</h3><p>Fetching projects from Firestore through FastAPI.</p></article></div>
+</div>
+
+<div class="page" id="schedule">
+  <div class="intro"><div><h2>Schedule Import</h2><p>Bring Primavera P6 or MS Project activity data into ProjectBridge.</p></div></div>
+  <article class="card upload"><div class="drop" id="scheduleDrop"><div class="uploadicon">↥</div><h3>Drop schedule file here</h3><p>Supported: XLSX, XLS, CSV</p><input id="scheduleFile" type="file" accept=".xlsx,.xls,.csv"><button class="secondary" id="scheduleBrowse">Choose File</button><small id="scheduleName"></small></div></article>
+  <article class="card"><h3>Expected activity fields</h3><p>The parser will map these columns into the execution model.</p><div class="chips"><span>Activity ID</span><span>WBS</span><span>Activity Name</span><span>Discipline</span><span>Planned Start</span><span>Planned Finish</span><span>Planned %</span></div></article>
+</div>
+
+<div class="page" id="reports">
+  <div class="intro"><div><h2>Progress Reports</h2><p>Upload DPRs, site diaries and execution reports for structured extraction.</p></div></div>
+  <article class="card upload"><div class="drop" id="reportDrop"><div class="uploadicon">▤</div><h3>Drop today's report here</h3><p>PDF, DOCX or TXT · Extraction happens in the backend</p><input id="reportFile" type="file" accept=".pdf,.docx,.txt"><button class="secondary" id="reportBrowse">Choose Report</button><small id="reportName"></small></div></article>
+  <div class="notice"><b>Low-friction capture</b><span>ProjectBridge extracts progress events and suggests the matching schedule activity. Nothing is written to the schedule without verification.</span></div>
+</div>
+
+<div class="page" id="matching">
+  <div class="intro"><div><h2>AI Activity Matching</h2><p>Review semantic matches between field updates and schedule activities.</p></div><button class="secondary" id="refresh">↻ Refresh</button></div>
+  <article class="card matches">
+    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Pump house foundation excavation completed 60%. Work continues in Zone A.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>A-105 · Excavation for foundation of pump house</strong><span>Semantic similarity: <b>93%</b></span></div><button class="primary approve">Approve</button></div>
+    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Main header welding is 42% complete as of today's shift.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>P-214 · Main header welding</strong><span>Semantic similarity: <b>88%</b></span></div><button class="secondary review">Review</button></div>
+    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Cable tray installation at substation block is progressing.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>E-031 · Cable tray installation</strong><span>Semantic similarity: <b>76%</b></span></div><button class="secondary review">Review</button></div>
+  </article>
+  <div class="confidence"><div>● <b>≥ 90%</b><small>High confidence</small></div><div>● <b>70–89%</b><small>Supervisor confirmation</small></div><div>● <b>&lt; 70%</b><small>Manual review</small></div></div>
+</div>
+
+<div class="page" id="tracking">
+  <div class="intro"><div><h2>Progress Tracking</h2><p>Compare baseline schedule against verified actual execution.</p></div><button class="secondary">Export View</button></div>
+  <article class="card"><div class="filters"><input id="search" placeholder="Search activity..."><select><option>All disciplines</option><option>Civil</option><option>Piping</option><option>Electrical</option></select><select><option>All statuses</option><option>At Risk</option><option>On Track</option></select></div>
+  <div class="tablewrap"><table id="activityTable"><thead><tr><th>Activity</th><th>Discipline</th><th>Baseline Finish</th><th>Actual Finish</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr></thead><tbody>
+  <tr><td><b>A-105</b><small>Foundation excavation — Pump House</small></td><td>Civil</td><td>14 Sep 2026</td><td>—</td><td>72%</td><td>60%</td><td class="red">-12%</td><td><label class="danger">At Risk</label></td></tr>
+  <tr><td><b>P-214</b><small>Main header welding</small></td><td>Piping</td><td>29 Sep 2026</td><td>—</td><td>48%</td><td>42%</td><td class="red">-6%</td><td><label class="warn">Watch</label></td></tr>
+  <tr><td><b>E-031</b><small>Cable tray installation</small></td><td>Electrical</td><td>03 Oct 2026</td><td>—</td><td>55%</td><td>54%</td><td>-1%</td><td><label class="ok">On Track</label></td></tr>
+  <tr><td><b>I-077</b><small>Instrument loop checking</small></td><td>Instrumentation</td><td>18 Oct 2026</td><td>—</td><td>38%</td><td>31%</td><td class="red">-7%</td><td><label class="warn">Watch</label></td></tr>
+  </tbody></table></div></article>
+</div>
+
+<div class="page" id="settings">
+  <div class="intro"><div><h2>Settings</h2><p>Prototype configuration for local development.</p></div></div>
+  <article class="card settings"><label>FastAPI Base URL<input id="apiUrl" value="http://localhost:8000"></label><label>Current Project<select><option>North-East Gas Pipeline Expansion</option></select></label><button class="primary" id="save">Save Settings</button><small id="saved"></small></article>
+</div>
+
+</section></main></div>
+<div class="modal-backdrop" id="projectModal">
+  <form class="modal" id="projectForm">
+    <div class="modal-head"><div><h3>New Project</h3><p>Create a project in Firestore.</p></div><button type="button" class="close" id="closeProject">×</button></div>
+    <div class="formgrid">
+      <label class="full">Project Name<input id="projectName" required minlength="2" maxlength="200" placeholder="North-East Gas Pipeline Expansion"></label>
+      <label>Location<input id="projectLocation" maxlength="200" placeholder="Assam"></label>
+      <label>Project Type<input id="projectType" maxlength="200" placeholder="Pipeline & Compression"></label>
+      <label>Start Date<input id="projectStart" type="date"></label>
+      <label>Finish Date<input id="projectFinish" type="date"></label>
+      <label>Initial Progress (%)<input id="projectProgress" type="number" min="0" max="100" step="0.1" value="0"></label>
+      <label>Status<select id="projectStatus"><option value="planned">Planned</option><option value="active">Active</option><option value="on_hold">On Hold</option><option value="completed">Completed</option></select></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary" id="cancelProject">Cancel</button><button class="primary" type="submit">Create Project</button></div>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+<script src="js/app.js"></script>
+</body></html>
