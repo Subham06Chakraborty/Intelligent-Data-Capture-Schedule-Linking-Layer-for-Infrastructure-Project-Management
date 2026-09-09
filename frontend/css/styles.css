@@ -11,3 +11,17 @@
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 .project.loading,.project.empty{opacity:.7}.project-actions{display:flex;gap:8px;margin-top:14px}.project-actions button{font-size:12px;padding:7px 10px}
 @media(max-width:650px){.formgrid{grid-template-columns:1fr}.formgrid .full{grid-column:auto}}
+
+/* Milestone 3: Schedule Import */
+.schedule-toolbar{display:flex;gap:12px;align-items:end;margin-bottom:15px}
+.schedule-toolbar label{display:grid;gap:6px;color:#657180;font-size:11px;font-weight:650;flex:1;max-width:420px}
+.schedule-toolbar select{border:1px solid #d8dfe7;border-radius:6px;padding:9px 10px;background:#fff;color:#24313f;font:inherit}
+.drop.dragover{border-color:#1769e0;background:#f4f8ff}
+.drop #scheduleUpload{display:block;margin:14px auto 0}
+.import-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.import-summary>div{background:#f8fafc;border:1px solid #e5e9ef;border-radius:8px;padding:14px}
+.import-summary strong{display:block;font-size:22px}
+.import-summary small{color:#6c7786}
+.import-errors{font-size:11px;color:#8a5a00;background:#fff7df;padding:10px;border-radius:7px;margin-top:14px}
+#scheduleActivities{margin-top:15px}
+@media(max-width:650px){.schedule-toolbar{flex-direction:column;align-items:stretch}.schedule-toolbar label{max-width:none}.import-summary{grid-template-columns:1fr}}

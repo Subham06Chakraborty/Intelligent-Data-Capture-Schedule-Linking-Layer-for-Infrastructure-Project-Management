@@ -1,12 +1,11 @@
 # Linked Project Management
 
-
 ### Intelligent Data Capture & Schedule-Linking Layer for Infrastructure Project Management
 
 **SIH 2026 — Problem Statement 26122**
-**Oil India Limited**
+**Organization:** Oil India Limited
 
-ProjectBridge is a planning-to-execution bridge for infrastructure project management. It is designed to connect structured project schedules with actual execution information collected from site reports and other field-level sources.
+Linked Project Management is a planning-to-execution bridge for infrastructure project management. It is designed to connect structured project schedules with actual execution information collected from site reports and other field-level sources.
 
 The system aims to reduce the gap between what is **planned** in Primavera P6/MS Project and what is actually **executed** at the project site.
 
@@ -41,27 +40,27 @@ This makes it difficult for project teams to continuously connect actual field p
 
 ## 💡 Proposed Solution
 
-ProjectBridge provides an intelligent workflow that connects planning data with execution data.
+Linked Project Management provides an intelligent workflow that connects planning data with execution data.
 
 ```text
 Project Schedule
-      ↓
+       ↓
 Schedule Import
-      ↓
+       ↓
 Structured Activities
-      ↓
+       ↓
 Progress Report / DPR
-      ↓
+       ↓
 Information Extraction
-      ↓
+       ↓
 AI Activity Matching
-      ↓
+       ↓
 Human Verification
-      ↓
+       ↓
 Actual Progress Update
-      ↓
+       ↓
 Planned vs Actual Analysis
-      ↓
+       ↓
 Delay & Risk Intelligence
 ```
 
@@ -69,11 +68,11 @@ The system is designed to keep a **human verification step** between AI-generate
 
 ---
 
-## 🚀 Core Features
+# 🚀 Core Features
 
-### 1. Project Management
+## 1. Project Management
 
-Create and manage infrastructure projects with information such as:
+Users can create and manage infrastructure projects with information such as:
 
 * Project name
 * Location
@@ -83,18 +82,96 @@ Create and manage infrastructure projects with information such as:
 * Overall progress
 * Project status
 
-### 2. Schedule Import
+Project information is stored in Firestore through the FastAPI backend.
 
-Planned for upcoming milestones:
+---
 
-* Import project schedule data
-* Extract WBS and activity information
-* Store activities in Firestore
-* Maintain activity-level schedule information
+## 2. Schedule Import
 
-### 3. Progress Report Processing
+The current system supports importing baseline project schedules.
 
-The system will process execution reports such as:
+Supported file formats:
+
+* CSV
+* XLSX
+* XLS
+
+The schedule processing layer:
+
+* Accepts uploaded schedule files
+* Validates required schedule fields
+* Extracts activity information
+* Extracts WBS information
+* Normalizes different schedule formats
+* Stores activities in Firestore
+* Associates activities with the selected project
+* Supports activity retrieval
+* Prevents duplicate activity records during re-import using deterministic activity IDs
+
+The normalized activity structure includes information such as:
+
+```text
+activity_id
+activity_name
+activity_desc
+wbs_code
+wbs_level
+discipline
+contractor
+region
+planned_start
+planned_end
+planned_progress
+```
+
+---
+
+## 3. Schedule Import Interface
+
+The frontend currently provides a dedicated **Schedule Import** page.
+
+The interface supports:
+
+* Selecting a project
+* Selecting a schedule file
+* Drag-and-drop file upload
+* Importing the schedule
+* Displaying import results
+* Viewing imported activities
+
+The frontend communicates with the FastAPI backend using REST APIs.
+
+The architecture remains:
+
+```text
+Frontend
+    ↓
+FastAPI REST API
+    ↓
+Firestore
+```
+
+---
+
+## 4. Imported Activity Management
+
+Imported schedule activities are stored in the Firestore `activities` collection.
+
+Activities are associated with their project through `project_id`.
+
+The system uses a deterministic activity identifier based on the project and activity ID:
+
+```text
+project_id + activity_id
+```
+
+This allows the same schedule to be imported again without unnecessarily creating duplicate activity records.
+
+---
+
+## 5. Progress Report Processing
+
+The system is planned to process execution reports such as:
 
 * DPRs
 * Site progress reports
@@ -103,32 +180,50 @@ The system will process execution reports such as:
 
 Relevant execution information will be extracted for further processing.
 
-### 4. AI Activity Matching
+This functionality is part of a future development phase.
 
-The system will use semantic similarity to match execution descriptions with scheduled activities.
+---
+
+## 6. AI Activity Matching
+
+The planned AI layer will use semantic similarity to match execution descriptions with scheduled activities.
 
 Example:
 
 ```text
 Schedule Activity:
+
 "Installation of 24-inch pipeline section"
 
 Site Report:
+
 "24 inch pipeline installation completed in Section B"
 
                     ↓
 
-AI Activity Matching
+            AI Activity Matching
 
                     ↓
 
 Matched Activity
+
 Confidence: 94%
 ```
 
-### 5. Progress Tracking
+The planned matching system will use techniques such as:
 
-The system will compare:
+* Text embeddings
+* Semantic similarity
+* Cosine similarity
+* Confidence scoring
+
+The AI matching layer is not yet fully integrated into the current prototype.
+
+---
+
+## 7. Progress Tracking
+
+The final system will compare:
 
 * Planned progress
 * Actual progress
@@ -136,25 +231,46 @@ The system will compare:
 * Delayed activities
 * At-risk activities
 
-### 6. Execution Intelligence
-
-The final system will provide project teams with a clearer view of what is happening at the execution level and how it differs from the baseline plan.
+The current prototype already stores planned activity progress and project-level progress. Actual execution progress and delay intelligence will be developed in later phases.
 
 ---
 
-## 🏗️ System Architecture
+## 8. Execution Intelligence
+
+The final system will provide project teams with a clearer view of what is happening at the execution level and how it differs from the baseline plan.
+
+The intended workflow is:
+
+```text
+Planning
+   ↓
+Execution Data
+   ↓
+Activity Matching
+   ↓
+Verification
+   ↓
+Progress Update
+   ↓
+Project Intelligence
+```
+
+---
+
+# 🏗️ System Architecture
 
 ```text
 ┌───────────────────────────────┐
-│       ProjectBridge UI        │
-│      HTML / CSS / JavaScript  │
+│   Linked Project Management   │
+│          Frontend             │
+│     HTML / CSS / JavaScript   │
 └───────────────┬───────────────┘
                 │
                 │ REST API
                 ▼
 ┌───────────────────────────────┐
 │          FastAPI              │
-│        Python Backend         │
+│       Python Backend          │
 └───────────────┬───────────────┘
                 │
         ┌───────┴────────┐
@@ -166,52 +282,62 @@ The final system will provide project teams with a clearer view of what is happe
 └──────────────┘  └──────────────────┘
 ```
 
-### Data Flow
+### Current Architecture
+
+The currently implemented data flow is:
 
 ```text
-Planning Data
-     ↓
-Schedule Parser
-     ↓
-Activities
-     ↓
+Frontend
+    ↓
+FastAPI
+    ↓
 Firestore
-     ↑
-Progress Reports
-     ↓
-Report Parser
-     ↓
-Event Extraction
-     ↓
-AI Activity Matcher
-     ↓
-Human Verification
-     ↓
-Progress Engine
 ```
 
----
-
-## 🛠️ Technology Stack
-
-| Layer                      | Technology                                 |
-| -------------------------- | ------------------------------------------ |
-| Frontend                   | HTML, CSS, Vanilla JavaScript              |
-| Backend                    | Python, FastAPI                            |
-| Database                   | Firebase Firestore                         |
-| Authentication             | Firebase / planned integration             |
-| Document Processing        | PyMuPDF, Pandas, OpenPyXL                  |
-| AI / NLP                   | Sentence Transformers, semantic similarity |
-| Machine Learning Utilities | Scikit-learn                               |
-| Hosting                    | Firebase Hosting / planned                 |
-| Backend Deployment         | To be finalized                            |
-
----
-
-## 📁 Project Structure
+For schedule processing:
 
 ```text
-ProjectBridge/
+Schedule File
+      ↓
+FastAPI
+      ↓
+Schedule Parser
+      ↓
+Normalized Activities
+      ↓
+Activity Service
+      ↓
+Firestore
+      ↓
+Frontend
+```
+
+The AI and execution-processing components will be connected in later phases.
+
+---
+
+# 🛠️ Technology Stack
+
+| Layer                      | Technology                                          |
+| -------------------------- | --------------------------------------------------- |
+| Frontend                   | HTML, CSS, Vanilla JavaScript                       |
+| Backend                    | Python, FastAPI                                     |
+| Database                   | Firebase Firestore                                  |
+| Authentication             | Firebase service-account authentication for backend |
+| Schedule Processing        | Pandas, OpenPyXL, xlrd                              |
+| Document Processing        | PyMuPDF                                             |
+| AI / NLP                   | Sentence Transformers, semantic similarity          |
+| Machine Learning Utilities | Scikit-learn                                        |
+| API Server                 | Uvicorn                                             |
+| Frontend Hosting           | Firebase Hosting / planned                          |
+| Backend Deployment         | To be finalized                                     |
+
+---
+
+# 📁 Project Structure
+
+```text
+Linked Project Management/
 │
 ├── README.md
 │
@@ -220,32 +346,71 @@ ProjectBridge/
 │   ├── .env.example
 │   ├── .gitignore
 │   ├── requirements.txt
+│   │
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py
+│   │   │
 │   │   ├── database/
+│   │   │   └── firestore.py
+│   │   │
 │   │   ├── models/
+│   │   │   ├── project.py
+│   │   │   └── schedule.py
+│   │   │
 │   │   ├── routes/
+│   │   │   ├── health.py
+│   │   │   ├── projects.py
+│   │   │   └── schedules.py
+│   │   │
 │   │   └── services/
+│   │       ├── firestore_service.py
+│   │       ├── project_service.py
+│   │       ├── schedule_parser.py
+│   │       └── activity_service.py
+│   │
+│   ├── sample-data/
+│   │   └── sample_schedule.csv
+│   │
 │   ├── tests/
+│   │   ├── test_health.py
+│   │   ├── test_projects.py
+│   │   └── test_schedule_parser.py
+│   │
 │   └── uploads/
+│       ├── schedules/
+│       └── reports/
 │
-└── frontend/
-    ├── README.md
-    ├── index.html
-    ├── css/
-    │   └── styles.css
-    └── js/
-        └── app.js
+├── frontend/
+│   ├── README.md
+│   ├── index.html
+│   ├── css/
+│   │   └── styles.css
+│   └── js/
+│       └── app.js
+│
+└── docs/
+    ├── 01_Project_Overview.md
+    ├── 02_Problem_Statement_and_Requirements.md
+    ├── 03_Solution_and_Architecture.md
+    ├── 04_Technology_Stack.md
+    ├── 05_Development_Progress.md
+    ├── 06_Database_and_Firestore_Schema.md
+    ├── 07_API_Documentation.md
+    ├── 08_Project_Structure.md
+    ├── 09_Features_and_Roadmap.md
+    ├── 10_Setup_and_Running_Guide.md
+    ├── 11_Security_and_Team_Handoff.md
+    └── README.md
 ```
 
 ---
 
 # 🔥 Firebase / Firestore
 
-ProjectBridge uses Firestore as the primary database for project and execution-related structured data.
+Linked Project Management uses **Firebase Firestore** as the primary database for structured project and schedule information.
 
-The architecture follows:
+The current architecture follows:
 
 ```text
 Frontend
@@ -255,33 +420,27 @@ FastAPI
 Firestore
 ```
 
-The frontend does **not** directly access Firestore for the current architecture.
+The frontend does **not** directly access Firestore.
 
-Sensitive Firebase service-account credentials must remain on the backend and must never be committed to GitHub.
-
----
-
-## 🔐 Security
-
-Never commit the following to GitHub:
-
-```text
-.env
-serviceAccountKey.json
-Firebase service-account credentials
-Private API keys
-Other secret credentials
-```
-
-The repository contains `.env.example` as a safe configuration template.
-
-Each developer should configure their own local `.env`.
+The backend handles database operations and keeps Firebase service-account credentials away from the frontend.
 
 ---
 
 # 📊 Firestore Data Model
 
-The planned Firestore structure includes:
+The current prototype uses the following main collections:
+
+```text
+projects/
+    {projectId}
+
+activities/
+    {activityId}
+```
+
+Additional collections are planned for execution processing.
+
+The broader planned structure is:
 
 ```text
 projects/
@@ -313,22 +472,35 @@ updated_at
 
 ### Activities
 
+Current schedule activities contain normalized information such as:
+
 ```text
 project_id
-activity_code
-wbs_code
+activity_id
 activity_name
+activity_desc
+wbs_code
+wbs_level
 discipline
+contractor
+region
 planned_start
-planned_finish
+planned_end
+planned_progress
+```
+
+Future activity fields may include:
+
+```text
 actual_start
 actual_finish
-planned_progress
 actual_progress
 status
 ```
 
-### Progress Events
+### Future Progress Events
+
+The planned progress-event structure includes:
 
 ```text
 report_id
@@ -346,121 +518,299 @@ verification_status
 
 # 🛣️ Development Roadmap
 
-### Milestone 1 — Foundation ✅
+## Phase 1 — Foundation ✅
+
+Completed:
 
 * FastAPI backend
 * Frontend foundation
 * Health check
 * Project structure
 * Development environment
+* Basic testing setup
 
-### Milestone 2 — Firestore + Project CRUD ✅
+---
+
+## Phase 2 — Firestore + Project Management ✅
+
+Completed:
 
 * Firestore connection
 * Project model
 * Project CRUD API
 * Projects frontend integration
+* Create project
+* View project
+* Update project
+* Delete project
+* Real project data connection
 
-### Milestone 3 — Schedule Import
+---
+
+## Phase 3 — Baseline Schedule & Activity Management ✅
+
+Completed:
 
 * Schedule file upload
-* Schedule parsing
-* WBS extraction
+* CSV schedule parsing
+* XLSX schedule parsing
+* XLS schedule parsing
+* Schedule validation
+* WBS information extraction
 * Activity extraction
+* Activity normalization
 * Activity storage
+* Project-activity association
+* Deterministic activity IDs
+* Duplicate-safe schedule re-import
+* Schedule Import frontend
+* Drag-and-drop upload
+* Imported Activities view
+* Real schedule data displayed through the application
 
-### Milestone 4 — Progress Report Processing
+### Phase 3 Testing
+
+Backend automated tests currently pass:
+
+```text
+6 passed
+1 warning
+```
+
+The tests cover:
+
+* Health endpoint
+* Root endpoint
+* Project validation
+* Project listing/service
+* Schedule CSV normalization
+* Missing required schedule column validation
+
+The live frontend workflow is also being tested using a synthetic Oil & Gas EPC schedule.
+
+---
+
+## Phase 4 — Progress Report Processing
+
+Planned:
 
 * DPR/report upload
-* PDF/Excel processing
+* PDF processing
+* Excel report processing
 * Execution information extraction
 * Progress event generation
+* Actual progress extraction
 
-### Milestone 5 — AI Activity Matching
+---
+
+## Phase 5 — AI Activity Matching
+
+Planned:
 
 * Semantic embeddings
 * Activity similarity matching
 * Confidence scoring
+* Candidate activity ranking
 * Human verification workflow
+* Matching audit trail
 
-### Milestone 6 — Progress & Delay Intelligence
+---
+
+## Phase 6 — Progress & Delay Intelligence
+
+Planned:
 
 * Planned vs actual comparison
 * Delay identification
 * At-risk activities
 * Progress dashboard
 * Execution analytics
+* Project performance indicators
 
 ---
 
 # 👥 Team Development
 
-The repository is divided into independent frontend and backend components.
+The repository is divided into independent frontend, backend, and data/AI components.
 
-### Frontend Developer
+### Frontend Development
 
-Works primarily inside:
+Primary directory:
 
 ```text
 frontend/
 ```
 
-### Backend Developer
+Responsible for:
 
-Works primarily inside:
+* User interface
+* Dashboard
+* Project management interface
+* Schedule Import interface
+* Activity display
+* Future progress-tracking interfaces
+
+### Backend Development
+
+Primary directory:
 
 ```text
 backend/
 ```
 
+Responsible for:
+
+* REST APIs
+* Firestore operations
+* Project management
+* Schedule processing
+* Activity management
+* Future report processing
+* Future AI integration
+
 ### AI / Data Processing
 
-AI and document-processing services will be integrated into:
+Primary integration location:
 
 ```text
 backend/app/services/
 ```
 
+Additional Databricks-related work is being developed separately and will be integrated into the main system later.
+
 ---
 
 # 🧪 Current Status
 
-**Current milestone: Milestone 2 — Firestore + Project CRUD**
+## Current Phase: Phase 3 — Baseline Schedule & Activity Management ✅
 
 Currently implemented:
 
-* ProjectBridge frontend
+* Linked Project Management frontend
 * FastAPI backend
 * Firestore connection
-* Project model
+* Project management
 * Project CRUD API
-* Frontend-to-FastAPI project integration
-* Create, update, view, and delete project functionality
+* Frontend-to-FastAPI integration
+* Schedule file upload
+* CSV/XLSX/XLS schedule processing
+* Schedule validation
+* Activity extraction
+* Activity normalization
+* Activity storage
+* Activity retrieval
+* Schedule Import interface
+* Imported Activities interface
+* Real project and schedule data
+* Automated backend tests
 
-The schedule-processing and AI activity-matching components are planned for subsequent milestones.
+### Current Test Project
+
+For application testing, the current synthetic project is:
+
+```text
+ABCD Gas Compression & Utility Expansion Project
+```
+
+Example project type:
+
+```text
+Oil & Gas EPC
+```
+
+The schedule data used for testing is synthetic and is intended only to simulate a realistic infrastructure project schedule.
 
 ---
 
-## 🎯 Long-Term Goal
+# 🔄 Current End-to-End Workflow
 
-ProjectBridge aims to provide a practical bridge between **project planning and field execution**.
+The currently working schedule workflow is:
+
+```text
+Create Project
+      ↓
+Select Project
+      ↓
+Upload Schedule
+      ↓
+Schedule Parser
+      ↓
+Validate & Normalize
+      ↓
+Extract Activities
+      ↓
+Store in Firestore
+      ↓
+Retrieve Activities
+      ↓
+Display in Frontend
+      ↓
+Dashboard
+```
+
+The future execution workflow will extend this:
+
+```text
+Baseline Schedule
+       ↓
+Progress Report / DPR
+       ↓
+Information Extraction
+       ↓
+AI Activity Matching
+       ↓
+Human Verification
+       ↓
+Actual Progress Update
+       ↓
+Planned vs Actual
+       ↓
+Delay & Risk Intelligence
+```
+
+---
+
+# 🔐 Security
+
+Never commit the following to GitHub:
+
+```text
+.env
+Firebase service-account JSON
+serviceAccountKey.json
+Private API keys
+Passwords
+Other secret credentials
+```
+
+The repository contains `.env.example` as a safe configuration template.
+
+Each developer should configure their own local `.env`.
+
+Firebase service-account credentials must remain on the backend and must never be exposed through the frontend.
+
+---
+
+# 🎯 Long-Term Goal
+
+Linked Project Management aims to provide a practical bridge between **project planning and field execution**.
 
 Instead of requiring project teams to manually reconcile schedule data with daily execution reports, the system will progressively automate:
 
 ```text
 Plan
- ↓
+  ↓
 Capture
- ↓
+  ↓
 Understand
- ↓
+  ↓
 Match
- ↓
+  ↓
 Verify
- ↓
+  ↓
 Update
- ↓
+  ↓
 Analyze
 ```
 
-The final objective is to provide project teams with faster, more reliable visibility into actual project progress and emerging execution delays.
+The final objective is to provide project teams with faster and more reliable visibility into actual project progress, schedule deviations, and emerging execution delays.

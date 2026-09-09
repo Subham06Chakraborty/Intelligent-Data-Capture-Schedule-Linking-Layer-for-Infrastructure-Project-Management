@@ -8,10 +8,6 @@ from functools import lru_cache
 from app.config import settings
 
 
-
-
-
-
 @lru_cache(maxsize=1)
 def get_firestore_client():
     """Create one Firestore client and reuse it for the process."""

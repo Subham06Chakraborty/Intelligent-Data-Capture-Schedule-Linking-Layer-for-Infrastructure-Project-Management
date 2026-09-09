@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import health, projects
+from app.routes import health, projects, schedules
 
 # ---------------------------------------------------------------------------
 # Logging setup (Milestone 1: just basic console logging)
@@ -66,12 +66,14 @@ app.add_middleware(
 # Each feature area of the API lives in its own router file under
 # app/routes/. As we build later milestones, we will add:
 #   app.include_router(projects.router)
+app.include_router(schedules.router)
 #   app.include_router(schedules.router)
 #   app.include_router(reports.router)
 #   app.include_router(matching.router)
 #   app.include_router(progress.router)
 app.include_router(health.router)
 app.include_router(projects.router)
+app.include_router(schedules.router)
 
 
 # ---------------------------------------------------------------------------

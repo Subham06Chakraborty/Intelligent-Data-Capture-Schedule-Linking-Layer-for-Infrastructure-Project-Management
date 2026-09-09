@@ -1,378 +1,189 @@
-# Linked Project Management Backend
+# Linked Project Management — Backend — Phase 3
 
-Python/FastAPI backend for **ProjectBridge — SIH 2026 Problem Statement 26122**.
+FastAPI + Firestore backend for SIH 26122. Phase 3 adds baseline schedule import and activity management on top of the Project CRUD functionality from Phase 2.
 
-The backend provides REST APIs for project management and acts as the secure communication layer between the frontend and Firebase Firestore.
+## 1. Requirements
 
----
-
-## 🏗️ Architecture
-
-```text
-Frontend
-   │
-   │ HTTP REST API
-   ▼
-FastAPI Backend
-   │
-   ├── Project Services
-   ├── Schedule Processing
-   ├── Report Processing
-   ├── AI Matching
-   └── Progress Engine
-   │
-   ▼
-Firebase Firestore
-```
-
-The frontend never directly connects to Firestore.
-
----
-
-# 🛠️ Technology
-
-* Python 3.11
-* FastAPI
-* Uvicorn
-* Firebase Firestore
-* Google Cloud Firestore SDK
-* Pydantic
-* Pandas
-* OpenPyXL
-* PyMuPDF
-* Sentence Transformers
-* Scikit-learn
-* NumPy
-* Pytest
-
----
-
-# 📁 Backend Structure
-
-```text
-backend/
-│
-├── README.md
-├── requirements.txt
-├── .env.example
-├── .gitignore
-│
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── config.py
-│   │
-│   ├── database/
-│   │   └── firestore.py
-│   │
-│   ├── models/
-│   │   └── project.py
-│   │
-│   ├── routes/
-│   │   ├── health.py
-│   │   └── projects.py
-│   │
-│   └── services/
-│       └── project_service.py
-│
-├── tests/
-│   ├── test_health.py
-│   └── test_projects.py
-│
-└── uploads/
-    ├── schedules/
-    └── reports/
-```
-
----
-
-# ⚙️ Setup
-
-## 1. Create the virtual environment
-
-Python 3.11 is recommended.
+Use **Python 3.11** for this project.
 
 ```powershell
 py -3.11 -m venv venv
-```
 
-Activate it:
-
-```powershell
 .\venv\Scripts\Activate.ps1
-```
 
----
-
-## 2. Install dependencies
-
-```powershell
 python -m pip install --upgrade pip
+
 pip install -r requirements.txt
 ```
 
----
+## 2. Firebase / Firestore setup
 
-# 🔥 Firebase / Firestore Configuration
+1. Create or open your Firebase project in the Firebase Console.
 
-The backend requires access to the Firebase project.
+2. Enable **Cloud Firestore** (production/test mode as appropriate for development).
 
-Create a Firebase service-account key and store it **locally**.
+3. In Google Cloud/Firebase, create a service account with permission to access Firestore.
 
-Do not commit the JSON credential file to GitHub.
+4. Download its JSON key **outside Git tracking**. Never upload it to GitHub.
 
----
-
-## 3. Create `.env`
-
-Copy:
+5. Copy `.env.example` to `.env` and set:
 
 ```text
-.env.example
-```
+GOOGLE_APPLICATION_CREDENTIALS=C:/path/to/service-account.json
 
-to:
+GOOGLE_CLOUD_PROJECT=your-firebase-project-id
 
-```text
-.env
-```
-
-Example:
-
-```env
-GOOGLE_APPLICATION_CREDENTIALS=C:/path/to/serviceAccountKey.json
-GOOGLE_CLOUD_PROJECT=linked-project-management
 ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500
+
 ENV=development
 ```
 
-### Important
+You can alternatively use Google Application Default Credentials and leave `GOOGLE_APPLICATION_CREDENTIALS` blank.
 
-`.env` is local configuration.
+## 3. Run
 
-It should **never** be committed to GitHub.
-
-The service-account JSON file must also remain outside version control.
-
----
-
-# ▶️ Run the Backend
-
-From the `backend` directory:
+From the `backend/` directory:
 
 ```powershell
-.\venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend:
+Open:
 
-```text
-http://localhost:8000
-```
+* `http://localhost:8000/docs`
+* `http://localhost:8000/api/health`
 
-Swagger API documentation:
+## 4. Project CRUD endpoints
 
-```text
-http://localhost:8000/docs
-```
+* `GET /api/projects` — list projects
+* `GET /api/projects/{project_id}` — get one project
+* `POST /api/projects` — create project
+* `PATCH /api/projects/{project_id}` — update project
+* `DELETE /api/projects/{project_id}` — delete project
 
-Health check:
-
-```text
-http://localhost:8000/api/health
-```
-
----
-
-# 📡 API Endpoints
-
-## Health
-
-```http
-GET /api/health
-```
-
-Used to verify that the backend is running.
-
----
-
-## Projects
-
-### List projects
-
-```http
-GET /api/projects
-```
-
-### Get a project
-
-```http
-GET /api/projects/{project_id}
-```
-
-### Create a project
-
-```http
-POST /api/projects
-```
-
-### Update a project
-
-```http
-PATCH /api/projects/{project_id}
-```
-
-### Delete a project
-
-```http
-DELETE /api/projects/{project_id}
-```
-
----
-
-# 📦 Project Model
-
-A project currently contains:
-
-```text
-name
-location
-project_type
-start_date
-finish_date
-overall_progress
-status
-created_at
-updated_at
-```
-
-Supported project statuses:
-
-```text
-planned
-active
-on_hold
-completed
-```
-
-Progress must be between:
-
-```text
-0 – 100
-```
-
----
-
-# 🔥 Firestore Collection
-
-Projects are stored in:
-
-```text
-projects
-```
-
-Example document:
+Example POST body:
 
 ```json
 {
-  "name": "Pipeline Expansion Project",
+  "name": "North-East Gas Pipeline Expansion",
   "location": "Assam",
-  "project_type": "Pipeline",
+  "project_type": "Pipeline & Compression",
   "start_date": "2026-01-01",
   "finish_date": "2027-12-31",
-  "overall_progress": 35,
+  "overall_progress": 67.4,
   "status": "active"
 }
 ```
 
----
+## 5. Firestore structure
 
-# 🧪 Testing
+```text
+projects/{projectId}
 
-Run all backend tests:
+  name
+  location
+  project_type
+  start_date
+  finish_date
+  overall_progress
+  status
+  created_at
+  updated_at
+```
+
+Dates are stored as ISO date strings and returned in ISO format by the API. This keeps the prototype simple and portable; we can switch to Firestore Timestamp fields later if needed.
+
+## 6. Tests
 
 ```powershell
 python -m pytest -q
 ```
 
-Compile-check the application:
+The CRUD service is isolated so API validation can be tested without requiring live Firestore credentials.
 
-```powershell
-python -m compileall -q app tests
-```
+## 7. Phase 3 — Schedule Import & Activity Management
 
----
+The backend now supports importing baseline schedule files and storing normalized activities in Firestore.
 
-# 🌐 CORS
+### Supported schedule files
 
-The development frontend runs on:
+* CSV
+* XLSX
+* XLS
+
+The schedule parser accepts common Primavera/MS Project-style column names and normalizes them into the application's activity model.
+
+### Schedule import endpoints
+
+* `POST /api/projects/{project_id}/schedule/import` — import a schedule file
+* `GET /api/projects/{project_id}/schedule/activities` — list imported activities
+
+### Activity processing
+
+During import, the backend:
+
+* Validates required activity information.
+* Normalizes activity IDs and names/descriptions.
+* Extracts WBS information.
+* Processes discipline and contractor information.
+* Normalizes planned start and finish dates.
+* Normalizes planned progress values.
+* Stores activities under the corresponding project.
+* Reports imported and skipped records.
+
+Imported activities are stored in the `activities` Firestore collection and are scoped to a project.
+
+Deterministic activity document IDs are used so repeated imports of the same activity update the existing record instead of creating duplicate activity documents.
+
+### Activity data
+
+The normalized activity model includes fields such as:
 
 ```text
-http://localhost:5500
-http://127.0.0.1:5500
+activity_id
+activity_name
+activity_desc
+wbs_code
+wbs_level
+discipline
+contractor
+region
+planned_start
+planned_end
+planned_progress
+project_id
 ```
 
-These origins are configured through:
+### Upload limit
 
-```env
-ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500
-```
+The prototype supports a maximum schedule file size of **10 MB** per upload.
 
-If the frontend port changes, update the environment configuration.
+## 8. Phase 3 Status
 
----
+Phase 3 is **complete**.
 
-# 🔐 Security
+The backend currently provides:
 
-Never commit:
-
-```text
-.env
-*.json service-account files
-API keys
-Private credentials
-```
-
-The repository should contain:
-
-```text
-.env.example
-```
-
-instead of the actual `.env`.
-
----
-
-# 🛣️ Backend Roadmap
-
-### Completed
-
-* FastAPI foundation
-* Health endpoint
+* FastAPI application
 * Firestore integration
-* Project model
 * Project CRUD
+* Baseline schedule import
+* CSV/XLSX/XLS parsing
+* Schedule validation and normalization
+* Activity storage in Firestore
+* Project-scoped activity retrieval
+* Duplicate-safe activity re-import
+* REST APIs for frontend schedule management
+* Automated tests for health, project validation/service behavior, and schedule parsing
 
-### Next
+Current automated test result:
 
-* Schedule parser
-* Schedule activity model
-* Schedule upload API
-* DPR/report parser
-* Progress event extraction
-* Semantic activity matching
-* Confidence scoring
-* Human verification
-* Progress calculation
-* Delay analysis
+```text
+6 passed, 1 warning
+```
 
----
+The warning is a dependency-related deprecation warning and does not indicate a test failure.
 
-## 📌 Current Status
+## 9. Next Phase
 
-**Milestone 2 — Firestore + Project CRUD**
-
-The backend is currently focused on establishing the database foundation and project management APIs.
-
-Future milestones will add schedule and execution intelligence capabilities.
+The next backend work will support **Phase 4 — Progress Report Processing**, including progress-report file handling, extraction of actual progress information, and preparation of data for activity matching.

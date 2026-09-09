@@ -32,166 +32,19 @@
 <section class="content">
 
 <div class="page active" id="dashboard">
-
-  <!-- Dashboard Header -->
-  <div class="hero">
-    <div>
-      <em>PROJECT OVERVIEW</em>
-      <h2 id="dashboardProjectName">No project selected</h2>
-      <p id="dashboardProjectInfo">
-        Create or select a project to begin tracking infrastructure execution.
-      </p>
-    </div>
-
-    <button class="primary" data-page="projects">
-      + Manage Projects
-    </button>
-  </div>
-
-  <!-- Real Project Statistics -->
+  <div class="hero"><div><em>PROJECT OVERVIEW</em><h2 id="dashboardProjectName">No project selected</h2><p id="dashboardProjectDescription">Project information will appear here when a project is available.</p></div><button class="primary" data-page="reports">+ Capture Progress</button></div>
   <div class="stats">
-
-    <div class="stat">
-      <span>Total Projects</span>
-      <strong id="totalProjects">0</strong>
-      <small>Projects in Firestore</small>
-    </div>
-
-    <div class="stat">
-      <span>Active Projects</span>
-      <strong id="activeProjects">0</strong>
-      <small>Currently active</small>
-    </div>
-
-    <div class="stat">
-      <span>Average Progress</span>
-      <strong id="averageProgress">0%</strong>
-      <small>Across all projects</small>
-    </div>
-
-    <div class="stat">
-      <span>Completed Projects</span>
-      <strong id="completedProjects">0</strong>
-      <small>Successfully completed</small>
-    </div>
-
+    <div class="stat"><span>Overall Progress</span><strong id="dashboardProgress">—</strong><small id="dashboardProgressNote">No project data</small><div class="bar"><i id="dashboardProgressBar" style="width:0%"></i></div></div>
+    <div class="stat"><span>Activities</span><strong id="dashboardActivities">—</strong><small id="dashboardActivitiesNote">No schedule imported</small></div>
+    <div class="stat"><span>On Schedule</span><strong id="dashboardOnSchedule">—</strong><small id="dashboardOnScheduleNote">No activity data</small></div>
+    <div class="stat"><span>At Risk</span><strong id="dashboardAtRisk">—</strong><small id="dashboardAtRiskNote">No activity data</small></div>
   </div>
-
-  <!-- Project Progress + System Status -->
   <div class="cols">
-
-    <article class="card">
-      <div class="head">
-        <div>
-          <h3>Project Progress</h3>
-          <p>Current progress of your projects</p>
-        </div>
-      </div>
-
-      <div id="dashboardProjects">
-        <div class="empty-state">
-          <h3>No projects available</h3>
-          <p>Create a project to see its progress here.</p>
-        </div>
-      </div>
-    </article>
-
-    <article class="card">
-      <div class="head">
-        <div>
-          <h3>Execution Intelligence</h3>
-          <p>Planning-to-execution bridge</p>
-        </div>
-      </div>
-
-      <div class="disc">
-
-        <div>
-          <span>Schedule Data <b>Pending</b></span>
-          <div class="bar">
-            <i style="width:0%"></i>
-          </div>
-        </div>
-
-        <div>
-          <span>Progress Reports <b>Pending</b></span>
-          <div class="bar">
-            <i style="width:0%"></i>
-          </div>
-        </div>
-
-        <div>
-          <span>AI Activity Matching <b>Pending</b></span>
-          <div class="bar">
-            <i style="width:0%"></i>
-          </div>
-        </div>
-
-        <div>
-          <span>Progress Tracking <b>Pending</b></span>
-          <div class="bar">
-            <i style="width:0%"></i>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="notice">
-        <b>Phase 2</b>
-        <span>
-          Project management and Firestore integration are active.
-          Schedule and execution analytics will appear after Schedule Import.
-        </span>
-      </div>
-
-    </article>
-
+    <article class="card"><div class="head"><div><h3>Planned vs Actual</h3><p>Cumulative project progress</p></div><select><option>Last 12 weeks</option><option>Last 6 weeks</option></select></div><div class="chart"><canvas id="chart"></canvas></div><div class="legend" id="dashboardLegend">No progress data available</div></article>
+    <article class="card"><div class="head"><div><h3>Discipline Progress</h3><p>Current execution status</p></div></div><div class="disc" id="disciplineProgress"><p class="empty">No activity data available yet.</p></div></article>
   </div>
-
-  <!-- Schedule Analytics Placeholder -->
-  <article class="card">
-
-    <div class="head">
-      <div>
-        <h3>Planned vs Actual</h3>
-        <p>Schedule-based execution analysis</p>
-      </div>
-    </div>
-
-    <div class="empty-state" style="padding:40px;text-align:center;">
-      <h3>Schedule data not available yet</h3>
-      <p>
-        Import a Primavera P6, MS Project, XLSX or CSV schedule
-        to enable planned vs actual analysis.
-      </p>
-
-      <button class="secondary" data-page="schedule">
-        Import Schedule
-      </button>
-    </div>
-
-  </article>
-
-  <!-- Attention Section -->
-  <article class="card">
-
-    <div class="head">
-      <div>
-        <h3>Execution Alerts</h3>
-        <p>Activities requiring attention</p>
-      </div>
-    </div>
-
-    <div class="empty-state" style="padding:30px;text-align:center;">
-      <h3>No execution alerts</h3>
-      <p>
-        Alerts will appear after schedule activities and progress
-        reports are imported and processed.
-      </p>
-    </div>
-
-  </article>
-
+  <article class="card"><div class="head"><div><h3>Attention Required</h3><p>Activities with execution variance</p></div><button class="link" data-page="tracking">View all →</button></div>
+  <div class="tablewrap"><p class="empty" id="attentionEmpty">No execution variance data available yet.</p></div></article>
 </div>
 
 <div class="page" id="projects">
@@ -200,9 +53,33 @@
 </div>
 
 <div class="page" id="schedule">
-  <div class="intro"><div><h2>Schedule Import</h2><p>Bring Primavera P6 or MS Project activity data into ProjectBridge.</p></div></div>
-  <article class="card upload"><div class="drop" id="scheduleDrop"><div class="uploadicon">↥</div><h3>Drop schedule file here</h3><p>Supported: XLSX, XLS, CSV</p><input id="scheduleFile" type="file" accept=".xlsx,.xls,.csv"><button class="secondary" id="scheduleBrowse">Choose File</button><small id="scheduleName"></small></div></article>
-  <article class="card"><h3>Expected activity fields</h3><p>The parser will map these columns into the execution model.</p><div class="chips"><span>Activity ID</span><span>WBS</span><span>Activity Name</span><span>Discipline</span><span>Planned Start</span><span>Planned Finish</span><span>Planned %</span></div></article>
+  <div class="intro">
+    <div><h2>Schedule Import</h2><p>Import Primavera P6 or MS Project-style activity data into a selected project.</p></div>
+  </div>
+  <article class="card upload">
+    <div class="schedule-toolbar">
+      <label>Target Project
+        <select id="scheduleProject"><option value="">Loading projects…</option></select>
+      </label>
+      <button class="secondary" id="loadActivities">View Imported Activities</button>
+    </div>
+    <div class="drop" id="scheduleDrop">
+      <div class="uploadicon">↥</div>
+      <h3>Drop schedule file here</h3>
+      <p>Supported: XLSX, XLS, CSV · Maximum 10 MB</p>
+      <input id="scheduleFile" type="file" accept=".xlsx,.xls,.csv">
+      <button class="secondary" id="scheduleBrowse">Choose File</button>
+      <small id="scheduleName"></small>
+      <button class="primary" id="scheduleUpload" disabled>Import Schedule</button>
+    </div>
+  </article>
+  <article class="card">
+    <h3>Expected activity fields</h3>
+    <p>The parser normalizes common Primavera/MS Project column names.</p>
+    <div class="chips"><span>Activity ID</span><span>WBS</span><span>Activity Name</span><span>Discipline</span><span>Planned Start</span><span>Planned Finish</span><span>Planned %</span></div>
+  </article>
+  <article class="card" id="scheduleResult" style="display:none"></article>
+  <article class="card" id="scheduleActivities" style="display:none"></article>
 </div>
 
 <div class="page" id="reports">
@@ -213,28 +90,19 @@
 
 <div class="page" id="matching">
   <div class="intro"><div><h2>AI Activity Matching</h2><p>Review semantic matches between field updates and schedule activities.</p></div><button class="secondary" id="refresh">↻ Refresh</button></div>
-  <article class="card matches">
-    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Pump house foundation excavation completed 60%. Work continues in Zone A.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>A-105 · Excavation for foundation of pump house</strong><span>Semantic similarity: <b>93%</b></span></div><button class="primary approve">Approve</button></div>
-    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Main header welding is 42% complete as of today's shift.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>P-214 · Main header welding</strong><span>Semantic similarity: <b>88%</b></span></div><button class="secondary review">Review</button></div>
-    <div class="match"><div><small>EXTRACTED FIELD UPDATE</small><p>“Cable tray installation at substation block is progressing.”</p></div><b>→</b><div class="target"><small>SUGGESTED SCHEDULE ACTIVITY</small><strong>E-031 · Cable tray installation</strong><span>Semantic similarity: <b>76%</b></span></div><button class="secondary review">Review</button></div>
-  </article>
+  <article class="card matches"><p class="empty">No AI matching results available yet.</p></article>
   <div class="confidence"><div>● <b>≥ 90%</b><small>High confidence</small></div><div>● <b>70–89%</b><small>Supervisor confirmation</small></div><div>● <b>&lt; 70%</b><small>Manual review</small></div></div>
 </div>
 
 <div class="page" id="tracking">
   <div class="intro"><div><h2>Progress Tracking</h2><p>Compare baseline schedule against verified actual execution.</p></div><button class="secondary">Export View</button></div>
   <article class="card"><div class="filters"><input id="search" placeholder="Search activity..."><select><option>All disciplines</option><option>Civil</option><option>Piping</option><option>Electrical</option></select><select><option>All statuses</option><option>At Risk</option><option>On Track</option></select></div>
-  <div class="tablewrap"><table id="activityTable"><thead><tr><th>Activity</th><th>Discipline</th><th>Baseline Finish</th><th>Actual Finish</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr></thead><tbody>
-  <tr><td><b>A-105</b><small>Foundation excavation — Pump House</small></td><td>Civil</td><td>14 Sep 2026</td><td>—</td><td>72%</td><td>60%</td><td class="red">-12%</td><td><label class="danger">At Risk</label></td></tr>
-  <tr><td><b>P-214</b><small>Main header welding</small></td><td>Piping</td><td>29 Sep 2026</td><td>—</td><td>48%</td><td>42%</td><td class="red">-6%</td><td><label class="warn">Watch</label></td></tr>
-  <tr><td><b>E-031</b><small>Cable tray installation</small></td><td>Electrical</td><td>03 Oct 2026</td><td>—</td><td>55%</td><td>54%</td><td>-1%</td><td><label class="ok">On Track</label></td></tr>
-  <tr><td><b>I-077</b><small>Instrument loop checking</small></td><td>Instrumentation</td><td>18 Oct 2026</td><td>—</td><td>38%</td><td>31%</td><td class="red">-7%</td><td><label class="warn">Watch</label></td></tr>
-  </tbody></table></div></article>
+  <div class="tablewrap"><p class="empty" id="trackingEmpty">No activity progress data available yet.</p></div></article>
 </div>
 
 <div class="page" id="settings">
   <div class="intro"><div><h2>Settings</h2><p>Prototype configuration for local development.</p></div></div>
-  <article class="card settings"><label>FastAPI Base URL<input id="apiUrl" value="http://localhost:8000"></label><label>Current Project<select><option>North-East Gas Pipeline Expansion</option></select></label><button class="primary" id="save">Save Settings</button><small id="saved"></small></article>
+  <article class="card settings"><label>FastAPI Base URL<input id="apiUrl" value="http://localhost:8000"></label><label>Current Project<select id="currentProject"><option value="">No project selected</option></select></label><button class="primary" id="save">Save Settings</button><small id="saved"></small></article>
 </div>
 
 </section></main></div>
