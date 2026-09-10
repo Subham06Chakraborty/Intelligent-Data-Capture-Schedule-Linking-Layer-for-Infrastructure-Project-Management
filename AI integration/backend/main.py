@@ -22,7 +22,7 @@ import time
 from collections import defaultdict
 
 from app.config import settings
-from app.routes import health, projects, schedules, ai_ingestion, ai_activities, predictions
+from app.routes import health, projects, ai_ingestion, ai_activities, predictions
 
 # ---------------------------------------------------------------------------
 # Logging setup (Milestone 1: just basic console logging)
@@ -48,6 +48,10 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS configuration
 # ---------------------------------------------------------------------------
+# In development, only the frontend origins listed in ALLOWED_ORIGINS
+# (see app/config.py, sourced from the .env file) are allowed to call this
+# API from a browser. Do NOT switch this to allow_origins=["*"] in a real
+# deployment - that would let any website call your API on a user's behalf.
 if settings.ENV == "development":
     logger.info("Running in DEVELOPMENT mode. Allowed origins: %s", settings.ALLOWED_ORIGINS)
 
@@ -90,9 +94,15 @@ async def rate_limit_middleware(request: Request, call_next):
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
+# Each feature area of the API lives in its own router file under
+# app/routes/. As we build later milestones, we will add:
+#   app.include_router(projects.router)
+#   app.include_router(schedules.router)
+#   app.include_router(reports.router)
+#   app.include_router(matching.router)
+#   app.include_router(progress.router)
 app.include_router(health.router)
 app.include_router(projects.router)
-app.include_router(schedules.router)
 app.include_router(ai_ingestion.router)
 app.include_router(ai_activities.router)
 app.include_router(predictions.router)
@@ -101,6 +111,8 @@ app.include_router(predictions.router)
 app.include_router(ai_ingestion.router, prefix="/api/v1")
 app.include_router(ai_activities.router, prefix="/api/v1")
 app.include_router(predictions.router, prefix="/api/v1")
+
+
 
 # ---------------------------------------------------------------------------
 # Root endpoint
@@ -114,4 +126,3 @@ def read_root():
         "docs": "/docs",
         "health": "/api/health",
     }
-
