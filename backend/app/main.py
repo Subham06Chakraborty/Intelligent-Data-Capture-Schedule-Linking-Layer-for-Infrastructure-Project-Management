@@ -93,11 +93,8 @@ async def rate_limit_middleware(request: Request, call_next):
 app.include_router(health.router)
 app.include_router(projects.router)
 app.include_router(schedules.router)
-app.include_router(ai_ingestion.router)
-app.include_router(ai_activities.router)
-app.include_router(predictions.router)
 
-# Mount with /api/v1 prefix for frontend API compatibility
+# AI/ML routes
 app.include_router(ai_ingestion.router, prefix="/api/v1")
 app.include_router(ai_activities.router, prefix="/api/v1")
 app.include_router(predictions.router, prefix="/api/v1")

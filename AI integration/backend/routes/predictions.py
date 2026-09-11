@@ -13,7 +13,7 @@ router = APIRouter(prefix="/analytics")
 @router.get("/delay-prediction", summary="Predict delay risk for a specific activity")
 async def delay_prediction(activity_id: str = Query(...)):
     db = get_db()
-    doc = db.collection("activities").document(activity_id).get()
+    doc = db.collection("progress_events").document(activity_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Activity not found")
 
@@ -21,7 +21,7 @@ async def delay_prediction(activity_id: str = Query(...)):
     result = predict_delay_risk(activity)
 
     # Save prediction back to activity document
-    db.collection("activities").document(activity_id).update({"prediction": result})
+    db.collection("progress_events").document(activity_id).update({"prediction": result})
     return {"activity_id": activity_id, **result}
 
 
@@ -31,7 +31,7 @@ async def delay_prediction(activity_id: str = Query(...)):
 @router.get("/discipline-summary", summary="Discipline-wise delay rate and performance stats")
 async def discipline_summary(project_id: str = Query(...)):
     db = get_db()
-    docs = db.collection("activities").where("project_id", "==", project_id).stream()
+    docs = db.collection("progress_events").where("project_id", "==", project_id).stream()
     activities = [doc.to_dict() for doc in docs]
 
     summary = defaultdict(lambda: {"total": 0, "matched": 0, "flagged": 0, "unmatched": 0,
@@ -40,7 +40,7 @@ async def discipline_summary(project_id: str = Query(...)):
     for a in activities:
         d = a.get("discipline", "unknown")
         summary[d]["total"] += 1
-        status = a.get("match_status", "unmatched")
+        status = a.get("status", "unmatched")
         summary[d][status] = summary[d].get(status, 0) + 1
         summary[d]["avg_confidence"].append(a.get("confidence", 0))
 
@@ -63,7 +63,7 @@ async def discipline_summary(project_id: str = Query(...)):
 @router.get("/weekly-trend", summary="Weekly activity ingestion trend (matched/flagged/unmatched)")
 async def weekly_trend(project_id: str = Query(...)):
     db = get_db()
-    docs = db.collection("activities").where("project_id", "==", project_id).stream()
+    docs = db.collection("progress_events").where("project_id", "==", project_id).stream()
 
     weekly = defaultdict(lambda: {"matched": 0, "flagged": 0, "unmatched": 0})
     for doc in docs:
@@ -73,7 +73,7 @@ async def weekly_trend(project_id: str = Query(...)):
             try:
                 dt = datetime.fromisoformat(ingested.replace("Z", "+00:00"))
                 week_key = dt.strftime("%Y-W%V")
-                status = a.get("match_status", "unmatched")
+                status = a.get("status", "unmatched")
                 weekly[week_key][status] += 1
             except Exception:
                 pass

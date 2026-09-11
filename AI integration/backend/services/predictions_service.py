@@ -98,12 +98,12 @@ def _encode_discipline(discipline: str) -> int:
 
 
 def _prepare_features(activity_data: dict) -> np.ndarray:
-    """Convert activity dict to ML feature vector."""
+    """Convert activity dict to ML feature vector in the exact training order."""
     return np.array([[
-        float(activity_data.get("planned_duration_days", 7)),
         _encode_discipline(activity_data.get("discipline", "civil")),
+        float(activity_data.get("planned_duration_days", 7)),
         float(activity_data.get("wbs_level", 5)),
-        float(activity_data.get("contractor_score", 0.75)),   # 0–1 reliability score
+        float(activity_data.get("contractor_score", 0.75)),
         1.0 if activity_data.get("monsoon_flag", False) else 0.0,
         float(activity_data.get("resource_count", 5)),
         float(activity_data.get("similar_past_delays", 0)),
@@ -190,12 +190,17 @@ def calculate_roi(project_id: str, project_budget_cr: float = 500.0) -> dict:
 
     # Count activities processed
     activities = list(
-        db.collection("activities")
+        db.collection("progress_events")
         .where("project_id", "==", project_id)
         .stream()
     )
+
     total = len(activities)
-    matched = sum(1 for a in activities if a.to_dict().get("match_status") == "matched")
+
+    matched = sum(
+        1 for a in activities
+        if a.to_dict().get("status") == "matched"
+    )
 
     # Data freshness: time since last activity ingestion
     latest = sorted(
@@ -233,66 +238,64 @@ def calculate_roi(project_id: str, project_budget_cr: float = 500.0) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # ML MODEL METRICS
 # ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# ML MODEL METRICS
+# ─────────────────────────────────────────────────────────────────────────────
 def get_model_metrics() -> dict:
     """
-    Returns metrics about the loaded ML models (accuracy, training size, etc.).
+    Returns the current status and verified training metrics of the loaded models.
+
+    Metrics are based only on values actually calculated by the
+    Databricks training notebook.
     """
+
+    features = [
+        "disc_encoded",
+        "planned_duration_days",
+        "wbs_level",
+        "contractor_score",
+        "monsoon_flag",
+        "resource_count",
+        "similar_past_delays",
+    ]
+
     metrics = {
         "delay_classifier": {
             "status": "not_loaded",
-            "accuracy": 0.0,
-            "f1_score": 0.0,
+            "accuracy": None,
+            "f1_score": None,
             "training_samples": 0,
             "last_trained": None,
-            "features_used": []
+            "features_used": features,
         },
         "duration_forecaster": {
             "status": "not_loaded",
-            "r2_score": 0.0,
-            "mae_days": 0.0,
+            "r2_score": None,
+            "mae_days": None,
             "training_samples": 0,
             "last_trained": None,
-            "features_used": []
+            "features_used": features,
         },
-        "overall_health": "using rule-based heuristics only"
+        "overall_health": "using rule-based heuristics only",
     }
-    
-    # Features used by both models
-    features = [
-        "planned_duration_days", "discipline", "wbs_level", 
-        "contractor_score", "monsoon_flag", "resource_count", 
-        "similar_past_delays"
-    ]
-    
-    # In a real-world scenario, these metrics might be stored as attributes 
-    # on the trained model objects or loaded from a separate metadata file alongside the .pkl
-    # For now we provide robust estimated metrics that represent the training results
-    
+
+    # Model files are loaded, but the actual evaluation metrics are not
+    # stored inside the exported .pkl files.
+    #
+    # Therefore, do not invent or hard-code accuracy, F1, R², MAE,
+    # training size, or training date here.
+
     if _delay_model is not None:
-        metrics["delay_classifier"].update({
-            "status": "loaded",
-            "accuracy": 0.89,
-            "f1_score": 0.86,
-            "training_samples": 14250,
-            "last_trained": "2023-11-01T10:00:00Z",
-            "features_used": features
-        })
-        
+        metrics["delay_classifier"]["status"] = "loaded"
+
     if _duration_model is not None:
-         metrics["duration_forecaster"].update({
-            "status": "loaded",
-            "r2_score": 0.82,
-            "mae_days": 1.4,
-            "training_samples": 14250,
-            "last_trained": "2023-11-01T10:00:00Z",
-            "features_used": features
-        })
-        
+        metrics["duration_forecaster"]["status"] = "loaded"
+
     if _delay_model is not None and _duration_model is not None:
-        metrics["overall_health"] = "excellent"
+        metrics["overall_health"] = "models loaded"
     elif _delay_model is not None or _duration_model is not None:
-        metrics["overall_health"] = "degraded (fallback active)"
-        
+        metrics["overall_health"] = "degraded (partial model loading)"
+
     metrics["generated_at"] = datetime.utcnow().isoformat()
-        
+
     return metrics

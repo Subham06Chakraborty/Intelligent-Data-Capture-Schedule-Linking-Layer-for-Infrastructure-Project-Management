@@ -17,12 +17,12 @@ async def list_activities(
     limit: int = Query(default=50, le=200),
 ):
     db = get_db()
-    query = db.collection("activities").where("project_id", "==", project_id)
+    query = db.collection("progress_events").where("project_id", "==", project_id)
 
     if discipline:
         query = query.where("discipline", "==", discipline)
     if status:
-        query = query.where("match_status", "==", status)
+        query = query.where("status", "==", status)
 
     docs = query.limit(limit).stream()
     activities = [doc.to_dict() for doc in docs]
@@ -30,9 +30,9 @@ async def list_activities(
     # Summary counts
     total = len(activities)
     counts = {
-        "matched": sum(1 for a in activities if a.get("match_status") == "matched"),
-        "flagged": sum(1 for a in activities if a.get("match_status") == "flagged"),
-        "unmatched": sum(1 for a in activities if a.get("match_status") == "unmatched"),
+        "matched": sum(1 for a in activities if a.get("status") == "matched"),
+        "flagged": sum(1 for a in activities if a.get("status") == "flagged"),
+        "unmatched": sum(1 for a in activities if a.get("status") == "unmatched"),
     }
 
     return {"total": total, "counts": counts, "activities": activities}
@@ -45,7 +45,7 @@ async def list_activities(
 @router.get("/{activity_id}", summary="Get a single activity with audit trail")
 async def get_activity(activity_id: str):
     db = get_db()
-    doc = db.collection("activities").document(activity_id).get()
+    doc = db.collection("progress_events").document(activity_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Activity not found")
 
@@ -75,7 +75,7 @@ async def review_activity(activity_id: str, payload: dict):
         raise HTTPException(status_code=400, detail="action must be confirm / reject / reassign")
 
     db = get_db()
-    doc_ref = db.collection("activities").document(activity_id)
+    doc_ref = db.collection("progress_events").document(activity_id)
     doc = doc_ref.get()
 
     if not doc.exists:
@@ -84,11 +84,11 @@ async def review_activity(activity_id: str, payload: dict):
     old_data = doc.to_dict()
 
     if action == "confirm":
-        update = {"match_status": "matched", "planner_reviewed": True, "reviewed_by": reviewed_by}
+        update = {"status": "matched", "planner_reviewed": True, "reviewed_by": reviewed_by}
         audit_action = "planner_confirmed"
 
     elif action == "reject":
-        update = {"match_status": "unmatched", "planner_reviewed": True, "reviewed_by": reviewed_by,
+        update = {"status": "unmatched", "planner_reviewed": True, "reviewed_by": reviewed_by,
                   "matched_activity_id": None, "matched_description": None}
         audit_action = "planner_rejected"
 
@@ -97,16 +97,16 @@ async def review_activity(activity_id: str, payload: dict):
         if not new_match_id:
             raise HTTPException(status_code=400, detail="matched_activity_id required for reassign")
 
-        # Look up the new match description from schedule
-        schedule_doc = db.collection("schedule").document(new_match_id).get()
-        new_desc = schedule_doc.to_dict().get("activity_desc", "") if schedule_doc.exists else ""
+        # Look up the new match description from activities
+        activity_doc = db.collection("activities").document(new_match_id).get()
+        new_desc = activity_doc.to_dict().get("activity_desc", "") if activity_doc.exists else ""
         update = {
-            "match_status": "matched",
+            "status": "matched",
             "matched_activity_id": new_match_id,
             "matched_description": new_desc,
             "planner_reviewed": True,
             "reviewed_by": reviewed_by,
-            "confidence_score": 1.0,    # planner manually confirmed → 100%
+            "confidence": 1.0,    # planner manually confirmed → 100%
         }
         audit_action = "planner_reassigned"
 
@@ -115,12 +115,17 @@ async def review_activity(activity_id: str, payload: dict):
         activity_id=activity_id,
         action=audit_action,
         performed_by=reviewed_by,
-        old_value={"match_status": old_data.get("match_status")},
+        old_value={"status": old_data.get("status")},
         new_value=update,
         notes=payload.get("notes"),
     )
 
-    return {"activity_id": activity_id, "action": action, "status": "updated", "message": "Activity review saved"}
+    return {
+    "event_id": activity_id,
+    "action": action,
+    "status": "updated",
+    "message": "Activity review saved",
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,4 +134,8 @@ async def review_activity(activity_id: str, payload: dict):
 @router.get("/{activity_id}/audit", summary="Full audit trail for an activity")
 async def activity_audit(activity_id: str):
     trail = await get_audit_trail(activity_id)
-    return {"activity_id": activity_id, "audit_trail": trail, "total_events": len(trail)}
+    return {
+    "event_id": activity_id,
+    "audit_trail": trail,
+    "total_events": len(trail),
+    }

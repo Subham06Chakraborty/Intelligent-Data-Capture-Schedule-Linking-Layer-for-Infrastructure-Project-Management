@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+
+# Environment variables (contains secrets)
+.env
+
+# Never commit any JSON key/credential files
+*.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Uploaded files (local dev storage)
+uploads/
+
+# Test cache
+.pytest_cache/
+
+# OS/editor junk
+.DS_Store
+.vscode/
+.idea/
+
+sample-data/

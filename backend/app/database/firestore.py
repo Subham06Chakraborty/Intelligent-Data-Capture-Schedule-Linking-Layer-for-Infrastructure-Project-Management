@@ -29,7 +29,7 @@ def get_db():
         from firebase_admin import credentials, firestore
 
         if not firebase_admin._apps:
-            cred_path = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")
+            cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
             if cred_path and os.path.exists(cred_path):
                 cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)

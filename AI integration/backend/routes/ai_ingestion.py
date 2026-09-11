@@ -7,6 +7,7 @@ from app.services.fuzzy_service import batch_match, get_match_summary
 from app.services.audit_service import log_action
 from app.services.predictions_service import predict_delay_risk
 from app.database.firestore import get_firestore_client as get_db
+from datetime import datetime
 
 def check_rbac(supervisor: str, discipline: str) -> bool:
     """
@@ -54,34 +55,85 @@ async def upload_report(
     if len(file_bytes) > 10 * 1024 * 1024:  # 10 MB limit
         raise HTTPException(status_code=413, detail="File too large. Max 10 MB.")
 
+    db = get_db()
+
     # ── Step 1: Parse file + LLM extraction
     result = ingest_file(file_bytes, file.filename, project_id)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    # ── Step 2: Load schedule for this project from Firestore
-    db = get_db()
-    schedule_docs = db.collection("schedule").where("project_id", "==", project_id).stream()
+
+    # ── Step 2: Create progress report record
+    report_id = str(uuid.uuid4())
+
+    report_doc = {
+        "report_id": report_id,
+        "project_id": project_id,
+        "filename": file.filename,
+        "source_type": result["source_type"],
+        "uploaded_by": uploaded_by,
+        "report_summary": result.get("summary", ""),
+        "processing_time_ms": result.get("processing_time_ms", 0),
+        "status": "processed",
+        "uploaded_at": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(),
+        ),
+    }
+
+    db.collection("progress_reports").document(report_id).set(report_doc)
+
+
+    # ── Step 3: Load schedule for this project from Firestore
+    
+    schedule_docs = db.collection("activities").where("project_id", "==", project_id).stream()
     schedule_items = [doc.to_dict() for doc in schedule_docs]
 
-    # ── Step 3: Fuzzy + Semantic matching
+    # ── Step 4: Fuzzy + Semantic matching
     enriched = batch_match(result["activities_raw"], schedule_items)
 
-    # ── Step 4: Save each activity + run prediction + write audit
-    report_id = str(uuid.uuid4())
+    # ── Step 5: Save each activity + run prediction + write audit
     saved_activities = []
 
     for act in enriched:
-        activity_id = str(uuid.uuid4())
-        planned_days = 7  # default; would come from schedule item in production
+        event_id = str(uuid.uuid4())
+        # Get the matched baseline activity
+        matched_activity = next(
+            (
+                item for item in schedule_items
+                if item.get("activity_id") == act.get("matched_activity_id")
+            ),
+            None,
+        )
+
+        # Calculate actual planned duration from the baseline schedule
+        planned_days = 7
+
+        if matched_activity:
+            try:
+                planned_start = matched_activity.get("planned_start")
+                planned_end = matched_activity.get("planned_end")
+
+                if planned_start and planned_end:
+                    start_date = datetime.fromisoformat(str(planned_start))
+                    end_date = datetime.fromisoformat(str(planned_end))
+                    planned_days = max((end_date - start_date).days, 1)
+            except (ValueError, TypeError):
+                planned_days = 7
 
         prediction = predict_delay_risk({
-            "discipline": act.get("discipline", "civil"),
+            "discipline": act.get(
+                "discipline",
+                matched_activity.get("discipline", "civil") if matched_activity else "civil"
+            ),
             "planned_duration_days": planned_days,
+            "wbs_level": matched_activity.get("wbs_level", 5) if matched_activity else 5,
+            "contractor_score": matched_activity.get("contractor_score", 0.75) if matched_activity else 0.75,
+            "resource_count": matched_activity.get("resource_count", 5) if matched_activity else 5,
         })
 
         activity_doc = {
-            "activity_id": activity_id,
+            "event_id": event_id,
             "report_id": report_id,
             "project_id": project_id,
             "ingested_by": uploaded_by,
@@ -92,11 +144,11 @@ async def upload_report(
             "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
-        db.collection("activities").document(activity_id).set(activity_doc)
+        db.collection("progress_events").document(event_id).set(activity_doc)
 
         # Audit log
         await log_action(
-            activity_id=activity_id,
+            activity_id=event_id,
             action="auto_extracted",
             performed_by=uploaded_by,
             new_value={"match_status": act.get("status"), "confidence": act.get("confidence")},
@@ -104,11 +156,19 @@ async def upload_report(
         )
         if act.get("status") in ("matched", "flagged"):
             await log_action(
-                activity_id=activity_id,
+                activity_id=event_id,
                 action="semantic_matched" if "semantic" in act.get("match_method", "") else "fuzzy_matched",
                 performed_by="system",
                 new_value={"matched_id": act.get("matched_activity_id")},
                 confidence=act.get("confidence"),
+            )
+
+        if prediction:
+            await log_action(
+                activity_id=event_id,
+                action="prediction_generated",
+                performed_by="system",
+                new_value={"prediction": prediction},
             )
 
         saved_activities.append(activity_doc)
@@ -160,7 +220,7 @@ async def chat_ingest(payload: dict):
         # ---------------------------
 
         db = get_db()
-        schedule_docs = db.collection("schedule").where("project_id", "==", project_id).stream()
+        schedule_docs = db.collection("activities").where("project_id", "==", project_id).stream()
         schedule_items = [doc.to_dict() for doc in schedule_docs]
 
         from app.services.fuzzy_service import smart_match
@@ -171,9 +231,9 @@ async def chat_ingest(payload: dict):
             schedule_items,
         )
 
-        activity_id = str(uuid.uuid4())
+        event_id = str(uuid.uuid4())
         activity_doc = {
-            "activity_id": activity_id,
+            "event_id": event_id,
             "project_id": project_id,
             "ingested_by": supervisor,
             "source_type": "chat",
@@ -181,17 +241,17 @@ async def chat_ingest(payload: dict):
             **match,
             "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
-        db.collection("activities").document(activity_id).set(activity_doc)
+        db.collection("progress_events").document(event_id).set(activity_doc)
 
         await log_action(
-            activity_id=activity_id,
+            activity_id=event_id,
             action="auto_extracted",
             performed_by=supervisor,
             new_value=activity_doc,
             confidence=match.get("confidence"),
         )
 
-        result["activity_id"] = activity_id
+        result["event_id"] = event_id
         result["match_result"] = match
 
     return result
