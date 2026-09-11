@@ -6,6 +6,12 @@ from datetime import datetime
 from typing import Optional
 from app.database.firestore import get_firestore_client as get_db
 
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    JOBLIB_AVAILABLE = False
+
 # Compatibility for models trained on scikit-learn < 1.7 unpickling on >= 1.7
 try:
     import sklearn._loss._loss
@@ -14,40 +20,66 @@ except Exception:
     pass
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MODEL LOADER — loads from local .pkl exported from Databricks
+# MODEL LOADER — loads from local files exported from Databricks
+# Priority: intellitrack_combined_model.joblib → individual .joblib → .pkl → fallback
 # ─────────────────────────────────────────────────────────────────────────────
 _delay_model = None
 _duration_model = None
+_model_features = None
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "../../models")
 
 
 def _load_models():
-    global _delay_model, _duration_model
-    delay_path = os.path.join(MODELS_DIR, "delay_classifier.pkl")
-    duration_path = os.path.join(MODELS_DIR, "duration_forecaster.pkl")
+    global _delay_model, _duration_model, _model_features
 
-    if os.path.exists(delay_path):
-        try:
-            with open(delay_path, "rb") as f:
-                _delay_model = pickle.load(f)
-            print("[PredictionService] OK: Delay classifier loaded")
-        except Exception as e:
-            print(f"[PredictionService] WARN: Could not load delay_classifier.pkl ({e}) -- using fallback")
-            _delay_model = None
-    else:
-        print("[PredictionService] WARN: delay_classifier.pkl not found -- using rule-based fallback")
+    combined_joblib = os.path.join(MODELS_DIR, "intellitrack_combined_model.joblib")
+    combined_pkl    = os.path.join(MODELS_DIR, "intellitrack_combined_model.pkl")
+    delay_joblib    = os.path.join(MODELS_DIR, "delay_classifier.joblib")
+    delay_pkl       = os.path.join(MODELS_DIR, "delay_classifier.pkl")
+    duration_joblib = os.path.join(MODELS_DIR, "duration_forecaster.joblib")
+    duration_pkl    = os.path.join(MODELS_DIR, "duration_forecaster.pkl")
 
-    if os.path.exists(duration_path):
-        try:
-            with open(duration_path, "rb") as f:
-                _duration_model = pickle.load(f)
-            print("[PredictionService] OK: Duration forecaster loaded")
-        except Exception as e:
-            print(f"[PredictionService] WARN: Could not load duration_forecaster.pkl ({e}) -- using fallback")
-            _duration_model = None
-    else:
-        print("[PredictionService] WARN: duration_forecaster.pkl not found -- using rule-based fallback")
+    loader = joblib.load if JOBLIB_AVAILABLE else pickle.load
+
+    # ── Try combined model first (authoritative) ──────────────────────────────
+    for cpath in [combined_joblib, combined_pkl]:
+        if os.path.exists(cpath):
+            try:
+                bundle = joblib.load(cpath) if JOBLIB_AVAILABLE else pickle.load(open(cpath, "rb"))
+                if isinstance(bundle, dict) and "delay_classifier" in bundle:
+                    _delay_model    = bundle["delay_classifier"]
+                    _duration_model = bundle["duration_forecaster"]
+                    _model_features = bundle.get("features", [])
+                    print(f"[PredictionService] OK: Combined model loaded from {os.path.basename(cpath)}")
+                    print(f"[PredictionService]    Features: {_model_features}")
+                    return
+            except Exception as e:
+                print(f"[PredictionService] WARN: Could not load {os.path.basename(cpath)}: {e}")
+
+    # ── Fallback: load individual files ───────────────────────────────────────
+    for dpath in [delay_joblib, delay_pkl]:
+        if os.path.exists(dpath):
+            try:
+                _delay_model = joblib.load(dpath) if JOBLIB_AVAILABLE else pickle.load(open(dpath, "rb"))
+                print(f"[PredictionService] OK: Delay classifier loaded from {os.path.basename(dpath)}")
+                break
+            except Exception as e:
+                print(f"[PredictionService] WARN: Could not load {os.path.basename(dpath)}: {e}")
+
+    for rpath in [duration_joblib, duration_pkl]:
+        if os.path.exists(rpath):
+            try:
+                _duration_model = joblib.load(rpath) if JOBLIB_AVAILABLE else pickle.load(open(rpath, "rb"))
+                print(f"[PredictionService] OK: Duration forecaster loaded from {os.path.basename(rpath)}")
+                break
+            except Exception as e:
+                print(f"[PredictionService] WARN: Could not load {os.path.basename(rpath)}: {e}")
+
+    if _delay_model is None:
+        print("[PredictionService] WARN: delay_classifier not found -- using rule-based fallback")
+    if _duration_model is None:
+        print("[PredictionService] WARN: duration_forecaster not found -- using rule-based fallback")
 
 
 _load_models()
@@ -98,12 +130,17 @@ def _encode_discipline(discipline: str) -> int:
 
 
 def _prepare_features(activity_data: dict) -> np.ndarray:
-    """Convert activity dict to ML feature vector."""
+    """Convert activity dict to ML feature vector.
+    
+    Feature order MUST match the Databricks training notebook exactly:
+      [disc_encoded, planned_duration_days, wbs_level, contractor_score,
+       monsoon_flag, resource_count, similar_past_delays]
+    """
     return np.array([[
-        float(activity_data.get("planned_duration_days", 7)),
         _encode_discipline(activity_data.get("discipline", "civil")),
+        float(activity_data.get("planned_duration_days", 7)),
         float(activity_data.get("wbs_level", 5)),
-        float(activity_data.get("contractor_score", 0.75)),   # 0–1 reliability score
+        float(activity_data.get("contractor_score", 0.75)),
         1.0 if activity_data.get("monsoon_flag", False) else 0.0,
         float(activity_data.get("resource_count", 5)),
         float(activity_data.get("similar_past_delays", 0)),
@@ -188,14 +225,14 @@ def calculate_roi(project_id: str, project_budget_cr: float = 500.0) -> dict:
     """
     db = get_db()
 
-    # Count activities processed
+    # Count progress events (AI-extracted execution observations)
     activities = list(
-        db.collection("activities")
+        db.collection("progress_events")
         .where("project_id", "==", project_id)
         .stream()
     )
     total = len(activities)
-    matched = sum(1 for a in activities if a.to_dict().get("match_status") == "matched")
+    matched = sum(1 for a in activities if a.to_dict().get("status") == "matched")
 
     # Data freshness: time since last activity ingestion
     latest = sorted(
@@ -235,64 +272,65 @@ def calculate_roi(project_id: str, project_budget_cr: float = 500.0) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 def get_model_metrics() -> dict:
     """
-    Returns metrics about the loaded ML models (accuracy, training size, etc.).
+    Returns the current status of the loaded ML models.
+
+    Note: Accuracy/F1/R2 metrics are NOT fabricated here.
+    They should be loaded from a metadata file stored alongside the .pkl
+    if available. Until then, only load status is reported.
     """
+    features = [
+        "disc_encoded",
+        "planned_duration_days",
+        "wbs_level",
+        "contractor_score",
+        "monsoon_flag",
+        "resource_count",
+        "similar_past_delays",
+    ]
+
     metrics = {
         "delay_classifier": {
             "status": "not_loaded",
-            "accuracy": 0.0,
-            "f1_score": 0.0,
+            "accuracy": None,
+            "f1_score": None,
             "training_samples": 0,
             "last_trained": None,
-            "features_used": []
+            "features_used": features,
         },
         "duration_forecaster": {
             "status": "not_loaded",
-            "r2_score": 0.0,
-            "mae_days": 0.0,
+            "r2_score": None,
+            "mae_days": None,
             "training_samples": 0,
             "last_trained": None,
-            "features_used": []
+            "features_used": features,
         },
-        "overall_health": "using rule-based heuristics only"
+        "overall_health": "using rule-based heuristics only",
     }
-    
-    # Features used by both models
-    features = [
-        "planned_duration_days", "discipline", "wbs_level", 
-        "contractor_score", "monsoon_flag", "resource_count", 
-        "similar_past_delays"
-    ]
-    
-    # In a real-world scenario, these metrics might be stored as attributes 
-    # on the trained model objects or loaded from a separate metadata file alongside the .pkl
-    # For now we provide robust estimated metrics that represent the training results
-    
+
+    # Use feature list from the loaded combined bundle if available
+    actual_features = _model_features if _model_features else features
+
     if _delay_model is not None:
         metrics["delay_classifier"].update({
             "status": "loaded",
-            "accuracy": 0.89,
-            "f1_score": 0.86,
-            "training_samples": 14250,
-            "last_trained": "2023-11-01T10:00:00Z",
-            "features_used": features
+            "features_used": actual_features,
+            "n_estimators": getattr(_delay_model, "n_estimators", None),
+            "n_features_in": getattr(_delay_model, "n_features_in_", None),
         })
-        
+
     if _duration_model is not None:
-         metrics["duration_forecaster"].update({
+        metrics["duration_forecaster"].update({
             "status": "loaded",
-            "r2_score": 0.82,
-            "mae_days": 1.4,
-            "training_samples": 14250,
-            "last_trained": "2023-11-01T10:00:00Z",
-            "features_used": features
+            "features_used": actual_features,
+            "n_estimators": getattr(_duration_model, "n_estimators", None),
+            "n_features_in": getattr(_duration_model, "n_features_in_", None),
         })
-        
+
     if _delay_model is not None and _duration_model is not None:
         metrics["overall_health"] = "excellent"
     elif _delay_model is not None or _duration_model is not None:
-        metrics["overall_health"] = "degraded (fallback active)"
-        
+        metrics["overall_health"] = "degraded (partial model loading)"
+
     metrics["generated_at"] = datetime.utcnow().isoformat()
-        
     return metrics

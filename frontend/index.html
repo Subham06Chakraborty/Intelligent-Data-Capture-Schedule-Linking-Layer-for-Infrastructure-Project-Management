@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ProjectBridge — Infrastructure Progress Intelligence</title>
+<title>IntelliTrack — SIH 26122 | Infrastructure Progress Intelligence</title>
+<meta name="description" content="Intelligent Data Capture & Schedule-Linking Layer for Oil & Gas Infrastructure Project Management. AI-powered DPR extraction, fuzzy matching, and delay prediction.">
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <div class="app">
 <aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo">PB</div><div><b>ProjectBridge</b><small>Planning → Execution</small></div></div>
+  <div class="brand"><div class="logo">IT</div><div><b>IntelliTrack</b><small>Planning → Execution</small></div></div>
   <nav>
     <button class="nav active" data-page="dashboard">▦ <span>Dashboard</span></button>
     <button class="nav" data-page="projects">▤ <span>Projects</span></button>
@@ -17,50 +19,55 @@
     <button class="nav" data-page="reports">↥ <span>Progress Reports</span></button>
     <button class="nav" data-page="matching">⌁ <span>AI Matching</span></button>
     <button class="nav" data-page="tracking">◔ <span>Progress Tracking</span></button>
+    <button class="nav" data-page="chat">💬 <span>Supervisor Chat</span></button>
   </nav>
-  <div class="bottom"><div class="api"><i></i><span>Backend</span><b id="apiStatus">Checking</b></div>
-  <button class="nav" data-page="settings">⚙ <span>Settings</span></button></div>
+  <div class="bottom">
+    <div class="api"><i></i><span>Backend</span><b id="apiStatus">Checking</b></div>
+    <button class="nav" data-page="settings">⚙ <span>Settings</span></button>
+  </div>
 </aside>
 
 <main>
 <header class="topbar">
   <button class="menu" id="menuBtn">☰</button>
-  <div><small>INFRASTRUCTURE PROJECT INTELLIGENCE</small><h1 id="pageTitle">Project Dashboard</h1></div>
+  <div><small>INFRASTRUCTURE PROJECT INTELLIGENCE — SIH 26122</small><h1 id="pageTitle">Project Dashboard</h1></div>
   <div class="topright"><span id="today"></span><span>♢</span><div class="avatar">SC</div></div>
 </header>
 
 <section class="content">
 
+<!-- ═══ DASHBOARD ═══ -->
 <div class="page active" id="dashboard">
-  <div class="hero"><div><em>PROJECT OVERVIEW</em><h2 id="dashboardProjectName">No project selected</h2><p id="dashboardProjectDescription">Project information will appear here when a project is available.</p></div><button class="primary" data-page="reports">+ Capture Progress</button></div>
+  <div class="hero">
+    <div><em>PROJECT OVERVIEW</em><h2 id="dashboardProjectName">Loading…</h2><p id="dashboardProjectDescription">Connecting to backend…</p></div>
+    <button class="primary" data-page="reports">+ Capture Progress</button>
+  </div>
   <div class="stats">
     <div class="stat"><span>Overall Progress</span><strong id="dashboardProgress">—</strong><small id="dashboardProgressNote">No project data</small><div class="bar"><i id="dashboardProgressBar" style="width:0%"></i></div></div>
-    <div class="stat"><span>Activities</span><strong id="dashboardActivities">—</strong><small id="dashboardActivitiesNote">No schedule imported</small></div>
-    <div class="stat"><span>On Schedule</span><strong id="dashboardOnSchedule">—</strong><small id="dashboardOnScheduleNote">No activity data</small></div>
-    <div class="stat"><span>At Risk</span><strong id="dashboardAtRisk">—</strong><small id="dashboardAtRiskNote">No activity data</small></div>
+    <div class="stat"><span>Baseline Activities</span><strong id="dashboardActivities">—</strong><small id="dashboardActivitiesNote">No schedule imported</small></div>
+    <div class="stat"><span>Verified Matches</span><strong id="dashboardOnSchedule">—</strong><small id="dashboardOnScheduleNote">No activity data</small></div>
+    <div class="stat"><span>High Risk Events</span><strong id="dashboardAtRisk">—</strong><small id="dashboardAtRiskNote">No activity data</small></div>
   </div>
   <div class="cols">
-    <article class="card"><div class="head"><div><h3>Planned vs Actual</h3><p>Cumulative project progress</p></div><select><option>Last 12 weeks</option><option>Last 6 weeks</option></select></div><div class="chart"><canvas id="chart"></canvas></div><div class="legend" id="dashboardLegend">No progress data available</div></article>
-    <article class="card"><div class="head"><div><h3>Discipline Progress</h3><p>Current execution status</p></div></div><div class="disc" id="disciplineProgress"><p class="empty">No activity data available yet.</p></div></article>
+    <article class="card"><div class="head"><div><h3>Planned vs Actual</h3><p>Cumulative project progress</p></div></div><div class="chart"><canvas id="chart"></canvas></div><div class="legend" id="dashboardLegend"><span style="color:#a7b1bc">■</span> Planned &nbsp;<span style="color:#1769e0">■</span> Actual</div></article>
+    <article class="card"><div class="head"><div><h3>Discipline Progress</h3><p>Baseline activity breakdown</p></div></div><div class="disc" id="disciplineProgress"><p class="empty">Import a schedule to see discipline progress.</p></div></article>
   </div>
-  <article class="card"><div class="head"><div><h3>Attention Required</h3><p>Activities with execution variance</p></div><button class="link" data-page="tracking">View all →</button></div>
-  <div class="tablewrap"><p class="empty" id="attentionEmpty">No execution variance data available yet.</p></div></article>
+  <article class="card"><div class="head"><div><h3>Attention Required</h3><p>Flagged & high-risk execution events</p></div><button class="link" data-page="tracking">View all →</button></div>
+  <div class="tablewrap"><p class="empty" id="attentionEmpty">No execution variance data yet. Upload a DPR report to start.</p></div></article>
 </div>
 
+<!-- ═══ PROJECTS ═══ -->
 <div class="page" id="projects">
   <div class="intro"><div><h2>Projects</h2><p>Manage infrastructure projects connected to the execution layer.</p></div><button class="primary" id="newProject">+ New Project</button></div>
-  <div class="projectgrid" id="projectGrid"><article class="project loading"><h3>Loading projects…</h3><p>Fetching projects from Firestore through FastAPI.</p></article></div>
+  <div class="projectgrid" id="projectGrid"><article class="project loading"><h3>Loading projects…</h3><p>Fetching from backend.</p></article></div>
 </div>
 
+<!-- ═══ SCHEDULE IMPORT ═══ -->
 <div class="page" id="schedule">
-  <div class="intro">
-    <div><h2>Schedule Import</h2><p>Import Primavera P6 or MS Project-style activity data into a selected project.</p></div>
-  </div>
+  <div class="intro"><div><h2>Schedule Import</h2><p>Import Primavera P6 or MS Project baseline activity data (L5/L6).</p></div></div>
   <article class="card upload">
     <div class="schedule-toolbar">
-      <label>Target Project
-        <select id="scheduleProject"><option value="">Loading projects…</option></select>
-      </label>
+      <label>Target Project<select id="scheduleProject"><option value="">Loading projects…</option></select></label>
       <button class="secondary" id="loadActivities">View Imported Activities</button>
     </div>
     <div class="drop" id="scheduleDrop">
@@ -82,33 +89,84 @@
   <article class="card" id="scheduleActivities" style="display:none"></article>
 </div>
 
+<!-- ═══ PROGRESS REPORTS ═══ -->
 <div class="page" id="reports">
-  <div class="intro"><div><h2>Progress Reports</h2><p>Upload DPRs, site diaries and execution reports for structured extraction.</p></div></div>
-  <article class="card upload"><div class="drop" id="reportDrop"><div class="uploadicon">▤</div><h3>Drop today's report here</h3><p>PDF, DOCX or TXT · Extraction happens in the backend</p><input id="reportFile" type="file" accept=".pdf,.docx,.txt"><button class="secondary" id="reportBrowse">Choose Report</button><small id="reportName"></small></div></article>
-  <div class="notice"><b>Low-friction capture</b><span>ProjectBridge extracts progress events and suggests the matching schedule activity. Nothing is written to the schedule without verification.</span></div>
+  <div class="intro"><div><h2>Progress Reports</h2><p>Upload DPRs, site diaries and execution reports for AI-powered extraction.</p></div></div>
+  <article class="card upload">
+    <div class="schedule-toolbar">
+      <label>Target Project<select id="reportProject"><option value="">Loading…</option></select></label>
+    </div>
+    <div class="drop" id="reportDrop">
+      <div class="uploadicon">▤</div>
+      <h3>Drop today's Daily Progress Report here</h3>
+      <p>PDF, DOCX or TXT · Extraction via Groq LLM (Oil & Gas domain-tuned)</p>
+      <input id="reportFile" type="file" accept=".pdf,.docx,.txt">
+      <button class="secondary" id="reportBrowse">Choose Report</button>
+      <small id="reportName"></small>
+      <button class="primary" id="reportUploadBtn" disabled>Upload & Extract</button>
+    </div>
+  </article>
+  <div class="notice"><b>AI Extraction</b><span>IntelliTrack reads Oil & Gas terminology (spool, hydrotest, loop check, etc.) and extracts structured activity records. Nothing is written to the baseline schedule without planner verification.</span></div>
+  <article class="card" id="reportResult" style="display:none"></article>
 </div>
 
+<!-- ═══ AI MATCHING ═══ -->
 <div class="page" id="matching">
-  <div class="intro"><div><h2>AI Activity Matching</h2><p>Review semantic matches between field updates and schedule activities.</p></div><button class="secondary" id="refresh">↻ Refresh</button></div>
-  <article class="card matches"><p class="empty">No AI matching results available yet.</p></article>
-  <div class="confidence"><div>● <b>≥ 90%</b><small>High confidence</small></div><div>● <b>70–89%</b><small>Supervisor confirmation</small></div><div>● <b>&lt; 70%</b><small>Manual review</small></div></div>
+  <div class="intro"><div><h2>AI Activity Matching</h2><p>Review semantic matches between field updates and baseline schedule activities.</p></div><button class="secondary" id="refresh">↻ Refresh</button></div>
+  <article class="card matches"><p class="empty">No AI matching results yet. Upload a DPR report first.</p></article>
+  <div class="confidence">
+    <div>● <b>≥ 90%</b><small>Auto-confirmed match</small></div>
+    <div>● <b>70–89%</b><small>Supervisor confirmation</small></div>
+    <div>● <b>&lt; 70%</b><small>Manual review needed</small></div>
+  </div>
 </div>
 
+<!-- ═══ PROGRESS TRACKING ═══ -->
 <div class="page" id="tracking">
-  <div class="intro"><div><h2>Progress Tracking</h2><p>Compare baseline schedule against verified actual execution.</p></div><button class="secondary">Export View</button></div>
-  <article class="card"><div class="filters"><input id="search" placeholder="Search activity..."><select><option>All disciplines</option><option>Civil</option><option>Piping</option><option>Electrical</option></select><select><option>All statuses</option><option>At Risk</option><option>On Track</option></select></div>
-  <div class="tablewrap"><p class="empty" id="trackingEmpty">No activity progress data available yet.</p></div></article>
+  <div class="intro"><div><h2>Progress Tracking</h2><p>Compare baseline schedule against AI-verified execution events.</p></div></div>
+  <article class="card">
+    <div class="filters">
+      <input id="search" placeholder="Search activity…">
+    </div>
+    <div class="tablewrap"><p class="empty" id="trackingEmpty">No execution data yet. Upload a DPR report to start tracking.</p></div>
+  </article>
 </div>
 
+<!-- ═══ SUPERVISOR CHAT ═══ -->
+<div class="page" id="chat">
+  <div class="intro"><div><h2>Supervisor Chat</h2><p>Log field activities conversationally — IntelliTrack extracts structured records from natural language.</p></div></div>
+  <article class="card" style="max-width:720px">
+    <div class="schedule-toolbar" style="margin-bottom:14px">
+      <label>Project<select id="chatProject"><option value="">Select project…</option></select></label>
+    </div>
+    <div id="chatMessages" style="min-height:200px;max-height:420px;overflow-y:auto;border:1px solid #e5e9ef;border-radius:8px;padding:14px;background:#f8fafc;display:flex;flex-direction:column;gap:10px">
+      <div class="chat-msg assistant"><span>Hello! I'm IntelliTrack. Tell me what work happened on site today — I'll extract and log it automatically. You can speak in English or Hindi.</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input id="chatInput" placeholder="e.g. Line 24 spool erection completed this morning, piping team" style="flex:1;border:1px solid #d8dfe7;border-radius:6px;padding:10px 12px;font:inherit">
+      <button class="primary" id="chatSend">Send</button>
+    </div>
+    <div id="chatLog" style="display:none;margin-top:14px;padding:12px;background:#e6f6ef;border:1px solid #b2e0c8;border-radius:8px;font-size:12px;color:#16734f"></div>
+  </article>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
 <div class="page" id="settings">
-  <div class="intro"><div><h2>Settings</h2><p>Prototype configuration for local development.</p></div></div>
-  <article class="card settings"><label>FastAPI Base URL<input id="apiUrl" value="http://localhost:8000"></label><label>Current Project<select id="currentProject"><option value="">No project selected</option></select></label><button class="primary" id="save">Save Settings</button><small id="saved"></small></article>
+  <div class="intro"><div><h2>Settings</h2><p>Backend configuration and active project selection.</p></div></div>
+  <article class="card settings">
+    <label>FastAPI Base URL<input id="apiUrl" value="http://localhost:8000"></label>
+    <label>Active Project<select id="currentProject"><option value="">No project selected</option></select></label>
+    <button class="primary" id="save">Save Settings</button>
+    <small id="saved"></small>
+  </article>
 </div>
 
 </section></main></div>
+
+<!-- Project Modal -->
 <div class="modal-backdrop" id="projectModal">
   <form class="modal" id="projectForm">
-    <div class="modal-head"><div><h3>New Project</h3><p>Create a project in Firestore.</p></div><button type="button" class="close" id="closeProject">×</button></div>
+    <div class="modal-head"><div><h3>New Project</h3><p>Create a project in the backend database.</p></div><button type="button" class="close" id="closeProject">×</button></div>
     <div class="formgrid">
       <label class="full">Project Name<input id="projectName" required minlength="2" maxlength="200" placeholder="North-East Gas Pipeline Expansion"></label>
       <label>Location<input id="projectLocation" maxlength="200" placeholder="Assam"></label>
@@ -121,6 +179,7 @@
     <div class="modal-actions"><button type="button" class="secondary" id="cancelProject">Cancel</button><button class="primary" type="submit">Create Project</button></div>
   </form>
 </div>
+
 <div class="toast" id="toast"></div>
 <script src="js/app.js"></script>
 </body></html>

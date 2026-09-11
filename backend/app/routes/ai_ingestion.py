@@ -1,38 +1,54 @@
+"""
+routes/ai_ingestion.py
+-----------------------
+AI document ingestion endpoints:
+  POST /api/v1/ingest/upload  — PDF / Excel / TXT report → extract + match
+  POST /api/v1/ingest/chat    — Supervisor chat → conversational activity logging
+  POST /api/v1/ingest/voice   — Voice note → Whisper → chat ingestion
+
+IMPORTANT: Extracted execution events are stored in `progress_events` collection.
+           The `activities` collection is reserved for baseline schedule activities only.
+"""
+
 import time
 import uuid
+from datetime import datetime
+
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
+
 from app.services.ingestion_service import ingest_file
-from app.services.fuzzy_service import batch_match, get_match_summary
+from app.services.fuzzy_service import batch_match, get_match_summary, smart_match
 from app.services.audit_service import log_action
 from app.services.predictions_service import predict_delay_risk
 from app.database.firestore import get_firestore_client as get_db
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC helper
+# ─────────────────────────────────────────────────────────────────────────────
 def check_rbac(supervisor: str, discipline: str) -> bool:
     """
     Checks if the supervisor is authorized to log for the given discipline.
+    Admin / system / anonymous roles bypass RBAC.
     """
     if not supervisor or not discipline:
         return True
-    
+
     sup_lower = supervisor.lower()
     disc_lower = discipline.lower()
-    
-    # System/Admin roles bypass RBAC
+
     if "admin" in sup_lower or "system" in sup_lower or "anonymous" in sup_lower:
         return True
-        
+
     known_disciplines = ["civil", "piping", "electrical", "instrumentation", "hse", "mechanical"]
-    
-    # Extract disciplines from supervisor title
     user_disciplines = [d for d in known_disciplines if d in sup_lower]
-    
-    # If the user has a specific discipline assigned, enforce it
-    if user_disciplines:
-        if disc_lower not in user_disciplines:
-            return False
-            
+
+    if user_disciplines and disc_lower not in user_disciplines:
+        return False
+
     return True
+
 
 router = APIRouter(prefix="/ingest")
 
@@ -54,34 +70,77 @@ async def upload_report(
     if len(file_bytes) > 10 * 1024 * 1024:  # 10 MB limit
         raise HTTPException(status_code=413, detail="File too large. Max 10 MB.")
 
-    # ── Step 1: Parse file + LLM extraction
+    db = get_db()
+
+    # ── Step 1: Parse file + LLM extraction ──────────────────────────────────
     result = ingest_file(file_bytes, file.filename, project_id)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    # ── Step 2: Load schedule for this project from Firestore
-    db = get_db()
-    schedule_docs = db.collection("schedule").where("project_id", "==", project_id).stream()
+    # ── Step 2: Create progress_reports record ────────────────────────────────
+    report_id = str(uuid.uuid4())
+    report_doc = {
+        "report_id": report_id,
+        "project_id": project_id,
+        "filename": file.filename,
+        "source_type": result["source_type"],
+        "uploaded_by": uploaded_by,
+        "report_summary": result.get("summary", ""),
+        "processing_time_ms": result.get("processing_time_ms", 0),
+        "status": "processed",
+        "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    db.collection("progress_reports").document(report_id).set(report_doc)
+
+    # ── Step 3: Load baseline activities for this project from Firestore ──────
+    # NOTE: activities collection = baseline schedule only (never overwrite it)
+    schedule_docs = db.collection("activities").where("project_id", "==", project_id).stream()
     schedule_items = [doc.to_dict() for doc in schedule_docs]
 
-    # ── Step 3: Fuzzy + Semantic matching
+    # ── Step 4: Fuzzy + Semantic matching ────────────────────────────────────
     enriched = batch_match(result["activities_raw"], schedule_items)
 
-    # ── Step 4: Save each activity + run prediction + write audit
-    report_id = str(uuid.uuid4())
-    saved_activities = []
+    # ── Step 5: Save each event to progress_events + predictions + audit ──────
+    saved_events = []
 
     for act in enriched:
-        activity_id = str(uuid.uuid4())
-        planned_days = 7  # default; would come from schedule item in production
+        event_id = str(uuid.uuid4())
+
+        # Lookup matched baseline activity for accurate planned duration
+        matched_activity = next(
+            (
+                item for item in schedule_items
+                if item.get("activity_id") == act.get("matched_activity_id")
+            ),
+            None,
+        )
+
+        planned_days = 7  # safe default
+        if matched_activity:
+            try:
+                planned_start = matched_activity.get("planned_start")
+                planned_end = matched_activity.get("planned_end")
+                if planned_start and planned_end:
+                    start_date = datetime.fromisoformat(str(planned_start))
+                    end_date = datetime.fromisoformat(str(planned_end))
+                    planned_days = max((end_date - start_date).days, 1)
+            except (ValueError, TypeError):
+                planned_days = 7
 
         prediction = predict_delay_risk({
-            "discipline": act.get("discipline", "civil"),
+            "discipline": act.get(
+                "discipline",
+                matched_activity.get("discipline", "civil") if matched_activity else "civil"
+            ),
             "planned_duration_days": planned_days,
+            "wbs_level": matched_activity.get("wbs_level", 5) if matched_activity else 5,
+            "contractor_score": matched_activity.get("contractor_score", 0.75) if matched_activity else 0.75,
+            "resource_count": matched_activity.get("resource_count", 5) if matched_activity else 5,
         })
 
-        activity_doc = {
-            "activity_id": activity_id,
+        # Store in progress_events — NOT in activities (baseline is sacred)
+        event_doc = {
+            "event_id": event_id,
             "report_id": report_id,
             "project_id": project_id,
             "ingested_by": uploaded_by,
@@ -91,12 +150,11 @@ async def upload_report(
             "prediction": prediction,
             "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
+        db.collection("progress_events").document(event_id).set(event_doc)
 
-        db.collection("activities").document(activity_id).set(activity_doc)
-
-        # Audit log
+        # Audit entries
         await log_action(
-            activity_id=activity_id,
+            activity_id=event_id,
             action="auto_extracted",
             performed_by=uploaded_by,
             new_value={"match_status": act.get("status"), "confidence": act.get("confidence")},
@@ -104,14 +162,21 @@ async def upload_report(
         )
         if act.get("status") in ("matched", "flagged"):
             await log_action(
-                activity_id=activity_id,
+                activity_id=event_id,
                 action="semantic_matched" if "semantic" in act.get("match_method", "") else "fuzzy_matched",
                 performed_by="system",
                 new_value={"matched_id": act.get("matched_activity_id")},
                 confidence=act.get("confidence"),
             )
+        if prediction:
+            await log_action(
+                activity_id=event_id,
+                action="prediction_generated",
+                performed_by="system",
+                new_value={"prediction": prediction},
+            )
 
-        saved_activities.append(activity_doc)
+        saved_events.append(event_doc)
 
     summary = get_match_summary(enriched)
 
@@ -122,7 +187,7 @@ async def upload_report(
         "report_summary": result.get("summary", ""),
         "processing_time_ms": result["processing_time_ms"],
         **summary,
-        "activities": saved_activities,
+        "activities": saved_events,
     }
 
 
@@ -148,32 +213,33 @@ async def chat_ingest(payload: dict):
 
     result = chat_with_supervisor(message, history)
 
-    # If LLM captured a complete activity, save it
+    # If LLM captured a complete activity, save it to progress_events
     if result.get("activity_log"):
         act = result["activity_log"]
-        
-        # --- RBAC SECURITY CHECK ---
+
+        # ── RBAC security check ───────────────────────────────────────────────
         if not check_rbac(supervisor, act.get("discipline", "")):
-            result["reply"] = f"🚨 Security Alert: You are logged in as '{supervisor}' and are not authorized to log activities for the '{act.get('discipline')}' discipline. Submission blocked."
+            result["reply"] = (
+                f"🚨 Security Alert: You are logged in as '{supervisor}' and are not "
+                f"authorized to log activities for the '{act.get('discipline')}' discipline. "
+                f"Submission blocked."
+            )
             result["activity_log"] = None
             return result
-        # ---------------------------
 
         db = get_db()
-        schedule_docs = db.collection("schedule").where("project_id", "==", project_id).stream()
+        schedule_docs = db.collection("activities").where("project_id", "==", project_id).stream()
         schedule_items = [doc.to_dict() for doc in schedule_docs]
 
-        from app.services.fuzzy_service import smart_match
-        act = result["activity_log"]
         match = smart_match(
             act.get("extracted_activity", ""),
             act.get("discipline", ""),
             schedule_items,
         )
 
-        activity_id = str(uuid.uuid4())
-        activity_doc = {
-            "activity_id": activity_id,
+        event_id = str(uuid.uuid4())
+        event_doc = {
+            "event_id": event_id,
             "project_id": project_id,
             "ingested_by": supervisor,
             "source_type": "chat",
@@ -181,24 +247,25 @@ async def chat_ingest(payload: dict):
             **match,
             "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
-        db.collection("activities").document(activity_id).set(activity_doc)
+        db.collection("progress_events").document(event_id).set(event_doc)
 
         await log_action(
-            activity_id=activity_id,
+            activity_id=event_id,
             action="auto_extracted",
             performed_by=supervisor,
-            new_value=activity_doc,
+            new_value=event_doc,
             confidence=match.get("confidence"),
         )
 
-        result["activity_id"] = activity_id
+        result["event_id"] = event_id
         result["match_result"] = match
 
     return result
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # POST /api/v1/ingest/voice
-# Supervisor voice note → transcribed text → conversational activity logging
+# Supervisor voice note → Whisper transcription → chat ingestion
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/voice", summary="Supervisor voice note for activity logging")
 async def voice_ingest(
@@ -217,7 +284,6 @@ async def voice_ingest(
         with open(temp_path, "wb") as f:
             f.write(await audio_file.read())
 
-        # Transcribe using Groq Whisper
         transcript = transcribe_audio(temp_path)
     finally:
         if os.path.exists(temp_path):
@@ -226,19 +292,16 @@ async def voice_ingest(
     if not transcript:
         raise HTTPException(status_code=500, detail="Failed to transcribe audio.")
 
-    # Pass the transcript to the existing chat ingestion logic
     payload = {
         "message": transcript,
         "history": json.loads(history) if history else [],
         "project_id": project_id,
         "supervisor": supervisor,
     }
-    
-    # We call the chat logic which extracts and fuzzy matches
+
     chat_response = await chat_ingest(payload)
-    
-    # Return the transcription so the UI can show what the supervisor said
+
     return {
         "transcription": transcript,
-        **chat_response
+        **chat_response,
     }

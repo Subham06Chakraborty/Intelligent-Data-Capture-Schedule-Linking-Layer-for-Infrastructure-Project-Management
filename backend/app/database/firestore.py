@@ -23,21 +23,21 @@ def get_db():
         print("[DB] Using LOCAL in-memory database (no Firebase needed)")
         return _db
 
-    # Real Firebase
+    # Real Firebase (Direct Google Cloud Client)
     try:
-        import firebase_admin
-        from firebase_admin import credentials, firestore
+        from google.cloud import firestore
+        from google.oauth2 import service_account
 
-        if not firebase_admin._apps:
-            cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
-            if cred_path and os.path.exists(cred_path):
-                cred = credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred)
-            else:
-                firebase_admin.initialize_app()
+        cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
+        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "linked-project-management")
 
-        _db = firestore.client()
-        print("[DB] Connected to Firebase Firestore")
+        if cred_path and os.path.exists(cred_path):
+            creds = service_account.Credentials.from_service_account_file(cred_path)
+            _db = firestore.Client(project=project_id, credentials=creds)
+        else:
+            _db = firestore.Client(project=project_id)
+
+        print("[DB] Connected to Firebase Firestore (via Native Client)")
 
     except Exception as e:
         print(f"[DB] Firebase failed ({e}), falling back to local DB")
@@ -56,9 +56,10 @@ get_firestore_client = get_db
 # Behaves like Firestore client (collection/document/stream/set/get/update)
 # ─────────────────────────────────────────────────────────────────────────────
 class _LocalDoc:
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, doc_id: str):
         self._data = data
         self.exists = data is not None
+        self.id = doc_id
 
     def to_dict(self):
         return self._data or {}
@@ -71,8 +72,10 @@ class _LocalCollection:
         self._filters = []
         self._order = None
         self._limit_val = None
-
-    def document(self, doc_id: str):
+    def document(self, doc_id: str = None):
+        if doc_id is None:
+            import uuid
+            doc_id = str(uuid.uuid4())
         return _LocalDocRef(self._store, self._name, doc_id)
 
     def where(self, field: str, op: str, value):
@@ -98,19 +101,19 @@ class _LocalCollection:
 
     def stream(self):
         collection = self._store.get(self._name, {})
-        docs = list(collection.values())
+        docs = list(collection.items())
 
         for (field, op, value) in self._filters:
             if op == "==":
-                docs = [d for d in docs if d.get(field) == value]
+                docs = [(k, v) for k, v in docs if v.get(field) == value]
 
         if self._order:
-            docs = sorted(docs, key=lambda d: d.get(self._order, ""))
+            docs = sorted(docs, key=lambda kv: kv[1].get(self._order, ""))
 
         if self._limit_val:
             docs = docs[: self._limit_val]
 
-        return [_LocalDoc(d) for d in docs]
+        return [_LocalDoc(v, k) for k, v in docs]
 
     def add(self, data: dict):
         import uuid
@@ -127,6 +130,10 @@ class _LocalDocRef:
         self._collection = collection
         self._doc_id = doc_id
 
+    @property
+    def id(self):
+        return self._doc_id
+
     def set(self, data: dict):
         if self._collection not in self._store:
             self._store[self._collection] = {}
@@ -134,7 +141,7 @@ class _LocalDocRef:
 
     def get(self):
         data = self._store.get(self._collection, {}).get(self._doc_id)
-        return _LocalDoc(data)
+        return _LocalDoc(data, self._doc_id)
 
     def update(self, data: dict):
         if self._collection not in self._store:

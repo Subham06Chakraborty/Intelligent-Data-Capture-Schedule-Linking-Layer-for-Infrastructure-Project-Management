@@ -1,11 +1,26 @@
+"""
+llm_service.py
+--------------
+Groq LLM integration for:
+  - Structured activity extraction from site reports (Oil & Gas domain)
+  - Supervisor chat interface (conversational activity logging)
+  - Report summarization
+  - Audio transcription via Groq Whisper
+"""
+
 import os
-from groq import Groq
 import json
-from typing import Optional
 import re
 import traceback
+from typing import Optional
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+from groq import Groq
+from app.config import settings
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Groq client — key is loaded from settings (which reads from .env via dotenv)
+# ─────────────────────────────────────────────────────────────────────────────
+client = Groq(api_key=settings.GROQ_API_KEY)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM PROMPT — Domain-tuned for Oil & Gas (the key differentiator)
@@ -65,16 +80,13 @@ You are IntelliTrack, a friendly AI assistant helping an Oil India site supervis
 log work progress. You speak in simple, clear language. You can respond in English
 or Hindi (if the supervisor writes in Hindi).
 
-Your goal: Collect exactly 4 pieces of information through natural conversation:
-1. What activity was completed or started? (in their own words is fine)
-2. When did it start? (date + approximate time)
-3. When did it finish, or is it still ongoing?
-4. Which discipline? (civil, piping, electrical, etc.)
+Your goal: Extract the work activity described by the user.
+If the user's message contains a clear activity (e.g., "finished steel erection", "welded 12 spools"), DO NOT ask follow-up questions. Immediately output the special JSON block below.
+Infer the discipline (civil/piping/etc) from the context. If dates/times are not specified, just use null or infer "today".
 
-Ask one question at a time. Be friendly and brief. Accept informal language.
-Accept Hindi transliteration (e.g. "kaam ho gaya" = work is done).
+Only ask a clarifying question if the message is completely vague (e.g., "we worked hard today").
 
-Once you have all 4 pieces, output a special JSON block:
+When you have a clear activity, output THIS EXACT JSON block at the end of your message:
 <ACTIVITY_LOG>
 {{
   "extracted_activity": "standardized description",
@@ -86,10 +98,11 @@ Once you have all 4 pieces, output a special JSON block:
 }}
 </ACTIVITY_LOG>
 
-Conversation history:
+Conversation History:
 {history}
 
-Supervisor says: {message}
+Supervisor: {message}
+Assistant:
 """
 
 
@@ -99,8 +112,8 @@ Supervisor says: {message}
 
 def extract_activities_from_text(text: str, report_date: str = "unknown") -> list[dict]:
     """
-    Uses Groq Llama3-70B to extract structured activity records from any
-    free-text site report. Returns list of activity dicts.
+    Uses Groq LLM to extract structured activity records from free-text site reports.
+    Returns a list of activity dicts.
     """
     try:
         response = client.chat.completions.create(
@@ -109,27 +122,59 @@ def extract_activities_from_text(text: str, report_date: str = "unknown") -> lis
                 {
                     "role": "user",
                     "content": OIL_GAS_EXTRACTION_PROMPT.format(
-                        text=text, report_date=report_date
+                        text=text,
+                        report_date=report_date,
                     ),
                 }
             ],
             temperature=0.05,   # low temp = consistent structured output
             max_tokens=4096,
         )
-        raw = response.choices[0].message.content.strip()
 
-        # Strip markdown code fences if model wraps in ```json
-        raw = re.sub(r"^```json\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
+        raw = response.choices[0].message.content
 
-        result = json.loads(raw)
-        return result.get("activities", [])
+        if not raw:
+            print("[LLM ERROR] Groq returned an empty response.")
+            return []
 
-    except json.JSONDecodeError:
-        # Fallback: return empty if LLM returns malformed JSON
-        return []
+        raw = raw.strip()
+
+        print("\n========== GROQ EXTRACTION RESPONSE ==========")
+        print(raw)
+        print("==============================================\n")
+
+        # Remove Markdown code fences if present
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+        # Try to find the JSON object if the model added extra text
+        json_match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if json_match:
+            raw = json_match.group(0)
+
+        try:
+            result = json.loads(raw)
+        except json.JSONDecodeError as e:
+            print("[LLM ERROR] Invalid JSON returned by Groq.")
+            print(f"[LLM ERROR] JSON error: {e}")
+            print("[LLM ERROR] Raw response:")
+            print(raw)
+            return []
+
+        activities = result.get("activities", [])
+
+        if not isinstance(activities, list):
+            print("[LLM ERROR] 'activities' is not a list.")
+            print(f"[LLM ERROR] Received: {activities}")
+            return []
+
+        print(f"[LLM] Extracted {len(activities)} activities.")
+        return activities
+
     except Exception as e:
         print(f"[LLM ERROR] extract_activities_from_text: {e}")
+        traceback.print_exc()
         return []
 
 
@@ -200,7 +245,7 @@ def summarize_report(text: str) -> str:
     """
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",     # smaller model — cheaper for summaries
+            model="openai/gpt-oss-120b",   # smaller/faster model for summaries
             messages=[
                 {
                     "role": "user",
@@ -217,6 +262,7 @@ def summarize_report(text: str) -> str:
         return response.choices[0].message.content.strip()
     except Exception:
         return "Summary unavailable."
+
 
 def transcribe_audio(audio_file_path: str) -> str:
     """

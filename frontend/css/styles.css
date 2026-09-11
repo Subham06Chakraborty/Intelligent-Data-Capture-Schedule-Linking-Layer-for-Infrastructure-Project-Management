@@ -25,3 +25,11 @@
 .import-errors{font-size:11px;color:#8a5a00;background:#fff7df;padding:10px;border-radius:7px;margin-top:14px}
 #scheduleActivities{margin-top:15px}
 @media(max-width:650px){.schedule-toolbar{flex-direction:column;align-items:stretch}.schedule-toolbar label{max-width:none}.import-summary{grid-template-columns:1fr}}
+
+/* Milestone 4: Supervisor Chat */
+.chat-msg{display:flex;margin-bottom:12px;font-size:13px}
+.chat-msg.user{justify-content:flex-end}
+.chat-msg.assistant{justify-content:flex-start}
+.chat-msg span{padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.4}
+.chat-msg.user span{background:#1769e0;color:#fff;border-bottom-right-radius:4px}
+.chat-msg.assistant span{background:#fff;border:1px solid #dce1e7;color:#202733;border-bottom-left-radius:4px}
