@@ -1,0 +1,52 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Firebase / Google Cloud credentials
+*.json
+!package.json
+
+# Uploaded files
+uploads/
+backend/uploads/
+
+# ML / AI caches
+.cache/
+huggingface/
+sentence_transformers/
+*.pkl
+*.joblib
+
+# Test and coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Frontend temporary files
+node_modules/
+
+# Generated files
+dist/
+build/
